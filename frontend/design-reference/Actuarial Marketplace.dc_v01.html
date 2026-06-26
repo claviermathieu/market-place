@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b0d10;color:#e6e8ec;font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+  @keyframes fadeup{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:#2a313c;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--ac,#4f8cff);cursor:pointer;border:3px solid #14171c;box-shadow:0 0 0 1px var(--ac,#4f8cff)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--ac,#4f8cff);cursor:pointer;border:3px solid #14171c}
+</style>
+</helmet>
+<div style="--ac:{{ accent }};min-height:100vh;background:#0b0d10">
+
+  <div style="position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 24px;background:rgba(11,13,16,.82);backdrop-filter:blur(14px);border-bottom:1px solid #1b2027">
+    <div onClick="{{ goMarket }}" style="display:flex;align-items:center;gap:11px;cursor:pointer">
+      <div style="width:28px;height:28px;border-radius:8px;background:var(--ac,#4f8cff);color:#06141f;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;letter-spacing:-.03em">Σ</div>
+      <span style="font-size:15px;font-weight:600;letter-spacing:-.01em;color:#f3f5f8">MCLAVIER Tech</span>
+    </div>
+    <nav style="display:flex;align-items:center;gap:4px">
+      <div onClick="{{ goMarket }}" style="padding:7px 13px;border-radius:8px;font-size:13.5px;font-weight:500;cursor:pointer;color:{{ navMarketColor }}" style-hover="background:rgba(255,255,255,.04)">Marketplace</div>
+      <div onClick="{{ goHistory }}" style="padding:7px 13px;border-radius:8px;font-size:13.5px;font-weight:500;cursor:pointer;color:{{ navHistColor }}" style-hover="background:rgba(255,255,255,.04)">History</div>
+      <button style="margin-left:8px;display:inline-flex;align-items:center;gap:7px;padding:7px 15px;border:1px solid #2f3947;border-radius:8px;background:transparent;color:#d7dbe2;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer" style-hover="border-color:var(--ac,#4f8cff);color:var(--ac,#4f8cff)">
+        <span style="width:7px;height:7px;border-radius:50%;background:#34d399"></span>Log in
+      </button>
+    </nav>
+  </div>
+
+  <sc-if value="{{ isMarketplace }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1120px;margin:0 auto;padding:38px 24px 90px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:30px">
+        <div>
+          <h1 style="margin:0;font-size:25px;font-weight:600;letter-spacing:-.025em;color:#f4f6f9">Marketplace</h1>
+          <p style="margin:7px 0 0;font-size:14px;color:#8a909c">Launch and manage your actuarial models.</p>
+        </div>
+        <button onClick="{{ openModal }}" style="display:inline-flex;align-items:center;gap:7px;padding:10px 18px;border:none;border-radius:9px;background:var(--ac,#4f8cff);color:#06141f;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(79,140,255,.28)" style-hover="filter:brightness(1.08)">+ Add App</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px">
+        <sc-for list="{{ apps }}" as="app" hint-placeholder-count="2">
+          <div style="position:relative;display:flex;flex-direction:column;gap:15px;padding:22px;background:#14171c;border:1px solid #232932;border-radius:14px" style-hover="border-color:#33404f">
+            <sc-if value="{{ app.isNew }}">
+              <span style="position:absolute;top:16px;right:16px;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.03em;color:var(--ac,#4f8cff);background:rgba(79,140,255,.14);border:1px solid rgba(79,140,255,.3)">NEW</span>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:42px;height:42px;border-radius:11px;background:rgba(79,140,255,.1);color:var(--ac,#4f8cff);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;letter-spacing:-.02em">{{ app.initials }}</div>
+              <div>
+                <h3 style="margin:0;font-size:16px;font-weight:600;color:#f1f3f6;letter-spacing:-.01em">{{ app.name }}</h3>
+                <span style="font-size:11.5px;color:#6b727e">Actuarial model</span>
+              </div>
+            </div>
+            <p style="margin:0;flex:1;font-size:13.5px;line-height:1.55;color:#9aa0ab">{{ app.desc }}</p>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ app.fieldNames }}" as="fn">
+                <span style="padding:4px 9px;border-radius:7px;font-size:11.5px;color:#8a909c;background:#1b1f26;border:1px solid #262c35">{{ fn }}</span>
+              </sc-for>
+            </div>
+            <button onClick="{{ app.onLaunch }}" style="margin-top:2px;padding:9px 14px;border:1px solid #2f3947;border-radius:9px;background:transparent;color:#d7dbe2;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px" style-hover="border-color:var(--ac,#4f8cff);color:var(--ac,#4f8cff)">Launch →</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isApp }}">
+    <div style="max-width:1120px;margin:0 auto;padding:24px 24px 90px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:22px;font-size:13px">
+        <span onClick="{{ goMarket }}" style="color:#8a909c;cursor:pointer" style-hover="color:#d7dbe2">Marketplace</span>
+        <span style="color:#454c57">/</span>
+        <span style="color:#e6e8ec;font-weight:500">{{ currentApp.name }}</span>
+      </div>
+      <div style="display:flex;gap:18px;flex-wrap:wrap">
+
+        <div style="flex:1 1 310px;min-width:280px;align-self:flex-start;background:#14171c;border:1px solid #232932;border-radius:14px;padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:11px">
+              <div style="width:36px;height:36px;border-radius:9px;background:rgba(79,140,255,.1);color:var(--ac,#4f8cff);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">{{ currentApp.initials }}</div>
+              <h2 style="margin:0;font-size:16px;font-weight:600;color:#f1f3f6;letter-spacing:-.01em">{{ currentApp.name }}</h2>
+            </div>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;letter-spacing:.04em;color:{{ jobBadgeColor }};background:{{ jobBadgeBg }}">
+              <span style="width:6px;height:6px;border-radius:50%;background:{{ jobBadgeColor }}"></span>{{ jobLabel }}
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:20px">
+            <sc-for list="{{ fields }}" as="f" hint-placeholder-count="2">
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px">
+                  <label style="font-size:13px;font-weight:500;color:#c4c9d2">{{ f.label }}</label>
+                  <span style="font-size:13px;font-weight:600;color:var(--ac,#4f8cff);font-variant-numeric:tabular-nums">{{ f.display }}</span>
+                </div>
+                <input type="range" min="{{ f.min }}" max="{{ f.max }}" step="{{ f.step }}" value="{{ f.value }}" onChange="{{ f.onChange }}" style="width:100%" />
+              </div>
+            </sc-for>
+          </div>
+          <button onClick="{{ run }}" style="margin-top:24px;width:100%;padding:11px;border:none;border-radius:9px;background:var(--ac,#4f8cff);color:#06141f;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(79,140,255,.24)" style-hover="filter:brightness(1.08)">Run simulation</button>
+        </div>
+
+        <div style="flex:2 1 440px;min-width:300px;background:#14171c;border:1px solid #232932;border-radius:14px;padding:22px;min-height:440px;display:flex;flex-direction:column">
+          <h3 style="margin:0 0 18px;font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;color:#7a818d">Results</h3>
+
+          <sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:#5b626d">
+              <div style="width:46px;height:46px;border-radius:12px;border:1.5px dashed #2f3744;display:flex;align-items:center;justify-content:center;font-size:20px;color:#3f4754">∿</div>
+              <p style="margin:0;font-size:13.5px">Adjust the inputs and run to generate results.</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showSpinner }}">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px">
+              <div style="width:34px;height:34px;border-radius:50%;border:3px solid #262c35;border-top-color:var(--ac,#4f8cff);animation:spin .8s linear infinite"></div>
+              <p style="margin:0;font-size:13.5px;color:#9aa0ab;animation:pulse 1.6s ease-in-out infinite">Running simulation…</p>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showResults }}">
+            <div style="animation:fadeup .4s ease both">
+              <div style="border:1px solid #232932;border-radius:11px;padding:8px 8px 4px;background:#101318;margin-bottom:18px">{{ chartEl }}</div>
+              <div style="overflow:hidden;border:1px solid #232932;border-radius:11px">
+                <table style="width:100%;border-collapse:collapse;font-size:13px">
+                  <thead>
+                    <tr>
+                      <sc-for list="{{ resultColumns }}" as="c">
+                        <th style="text-align:left;padding:10px 14px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a818d;background:#1a1e24;border-bottom:1px solid #232932">{{ c }}</th>
+                      </sc-for>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <sc-for list="{{ resultRows }}" as="row">
+                      <tr>
+                        <sc-for list="{{ row }}" as="cell">
+                          <td style="padding:9px 14px;color:#c4c9d2;border-bottom:1px solid #1c2128;font-variant-numeric:tabular-nums">{{ cell }}</td>
+                        </sc-for>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isHistory }}">
+    <div style="max-width:1120px;margin:0 auto;padding:38px 24px 90px">
+      <h1 style="margin:0;font-size:25px;font-weight:600;letter-spacing:-.025em;color:#f4f6f9">History</h1>
+      <p style="margin:7px 0 26px;font-size:14px;color:#8a909c">A log of every job run across your apps.</p>
+      <div style="overflow:hidden;border:1px solid #232932;border-radius:14px;background:#14171c">
+        <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:13px 18px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a818d;background:#1a1e24;border-bottom:1px solid #232932">App</th>
+              <th style="text-align:left;padding:13px 18px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a818d;background:#1a1e24;border-bottom:1px solid #232932">Status</th>
+              <th style="text-align:left;padding:13px 18px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a818d;background:#1a1e24;border-bottom:1px solid #232932">Started at</th>
+              <th style="text-align:left;padding:13px 18px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#7a818d;background:#1a1e24;border-bottom:1px solid #232932">Duration</th>
+              <th style="padding:13px 18px;background:#1a1e24;border-bottom:1px solid #232932"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ historyRows }}" as="row" hint-placeholder-count="4">
+              <tr style="background:{{ row.rowBg }}">
+                <td style="padding:13px 18px;color:#eceef2;font-weight:500;border-bottom:1px solid #1c2128">{{ row.app }}</td>
+                <td style="padding:13px 18px;border-bottom:1px solid #1c2128">
+                  <span style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;letter-spacing:.03em;color:{{ row.badgeColor }};background:{{ row.badgeBg }}">
+                    <span style="width:6px;height:6px;border-radius:50%;background:{{ row.badgeColor }}"></span>{{ row.status }}
+                  </span>
+                </td>
+                <td style="padding:13px 18px;color:#9aa0ab;border-bottom:1px solid #1c2128;font-variant-numeric:tabular-nums">{{ row.started }}</td>
+                <td style="padding:13px 18px;color:#9aa0ab;border-bottom:1px solid #1c2128;font-variant-numeric:tabular-nums">{{ row.duration }}</td>
+                <td style="padding:13px 18px;text-align:right;border-bottom:1px solid #1c2128">
+                  <button style="padding:6px 13px;border:1px solid #2f3947;border-radius:8px;background:transparent;color:#c4c9d2;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer" style-hover="border-color:var(--ac,#4f8cff);color:var(--ac,#4f8cff)">View</button>
+                </td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ modalOpen }}">
+    <div onClick="{{ closeModal }}" style="position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(6,8,11,.7);backdrop-filter:blur(4px);animation:fadeup .2s ease both">
+      <div onClick="{{ stopProp }}" style="width:100%;max-width:440px;background:#16191f;border:1px solid #2a313c;border-radius:16px;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.5)">
+
+        <sc-if value="{{ modalLoading }}">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:34px 0">
+            <div style="width:36px;height:36px;border-radius:50%;border:3px solid #262c35;border-top-color:var(--ac,#4f8cff);animation:spin .8s linear infinite"></div>
+            <div style="text-align:center">
+              <p style="margin:0;font-size:15px;font-weight:600;color:#f1f3f6">Cloning repo…</p>
+              <p style="margin:6px 0 0;font-size:12.5px;color:#8a909c">Validating manifest.json and function.py</p>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ modalFormVisible }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+            <div>
+              <h2 style="margin:0;font-size:18px;font-weight:600;color:#f4f6f9;letter-spacing:-.01em">Add App</h2>
+              <p style="margin:5px 0 0;font-size:13px;color:#8a909c">Register a model from a GitHub repository.</p>
+            </div>
+            <button onClick="{{ closeModal }}" style="width:30px;height:30px;border:none;border-radius:8px;background:#21262e;color:#9aa0ab;font-size:16px;cursor:pointer;line-height:1" style-hover="background:#2a313c;color:#e6e8ec">×</button>
+          </div>
+          <label style="display:block;font-size:12.5px;font-weight:500;color:#c4c9d2;margin-bottom:8px">GitHub repo URL</label>
+          <input value="{{ repoUrl }}" onChange="{{ onRepo }}" placeholder="https://github.com/your-org/model-repo" style="width:100%;padding:11px 13px;background:#0e1116;border:1px solid #2a313c;border-radius:9px;color:#e6e8ec;font-family:inherit;font-size:13.5px;outline:none" style-focus="border-color:var(--ac,#4f8cff)" />
+          <p style="margin:9px 0 0;font-size:12px;color:#6b727e;line-height:1.5">Repo must contain a <span style="color:#9aa0ab;font-family:ui-monospace,monospace">manifest.json</span> and a <span style="color:#9aa0ab;font-family:ui-monospace,monospace">function.py</span>.</p>
+          <button onClick="{{ register }}" style="margin-top:22px;width:100%;padding:11px;border:none;border-radius:9px;background:var(--ac,#4f8cff);color:#06141f;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(79,140,255,.24)" style-hover="filter:brightness(1.08)">Register App</button>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accentColor&quot;: {&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#4f8cff&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#4f8cff&quot;,&quot;#2dd4bf&quot;,&quot;#a78bfa&quot;,&quot;#f59e0b&quot;]},
+  &quot;startPage&quot;: {&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;marketplace&quot;,&quot;options&quot;:[&quot;marketplace&quot;,&quot;app&quot;,&quot;history&quot;],&quot;tsType&quot;:&quot;string&quot;}
+}">
+class Component extends DCLogic {
+  state = {
+    page: this.props.startPage || 'marketplace',
+    apps: [
+      { id:'mortality', name:'Mortality Simulator', initials:'MS',
+        desc:'Project survival curves under configurable mortality shocks.',
+        kind:'mortality', isNew:false,
+        fields:[
+          {key:'age',label:'Age',min:18,max:100,step:1,def:45,unit:' yrs'},
+          {key:'shock',label:'Mortality shock rate',min:0,max:50,step:0.5,def:10,unit:'%'}
+        ]},
+      { id:'portfolio', name:'Portfolio Pricer', initials:'PP',
+        desc:'Price a diversified asset portfolio across volatility regimes.',
+        kind:'portfolio', isNew:false,
+        fields:[
+          {key:'assets',label:'Number of assets',min:1,max:200,step:1,def:50,unit:''},
+          {key:'vol',label:'Volatility',min:0,max:100,step:1,def:20,unit:'%'}
+        ]}
+    ],
+    currentId:'mortality',
+    form:{},
+    jobStatus:'IDLE',
+    results:null,
+    modalOpen:false,
+    modalLoading:false,
+    repoUrl:'',
+    history:[
+      {app:'Mortality Simulator',status:'SUCCESS',started:'Jun 26, 09:12',duration:'1.4s'},
+      {app:'Portfolio Pricer',status:'SUCCESS',started:'Jun 26, 08:47',duration:'2.1s'},
+      {app:'Mortality Simulator',status:'FAILED',started:'Jun 25, 17:30',duration:'0.6s'},
+      {app:'Portfolio Pricer',status:'RUNNING',started:'Jun 26, 14:02',duration:'—'}
+    ]
+  };
+
+  curApp(){ return this.state.apps.find(a=>a.id===this.state.currentId); }
+
+  launch(id){
+    const app=this.state.apps.find(a=>a.id===id);
+    const form={};
+    app.fields.forEach(f=>form[f.key]=f.def);
+    this.setState({page:'app',currentId:id,form,jobStatus:'IDLE',results:null});
+  }
+
+  setField(k,v){ this.setState(s=>({form:{...s.form,[k]:+v}})); }
+
+  run(){
+    if(this.state.jobStatus==='PENDING'||this.state.jobStatus==='RUNNING') return;
+    this.setState({jobStatus:'PENDING',results:null});
+    clearTimeout(this._t1); clearTimeout(this._t2);
+    this._t1=setTimeout(()=>this.setState({jobStatus:'RUNNING'}),450);
+    this._t2=setTimeout(()=>{
+      const res=this.compute();
+      const app=this.curApp();
+      const entry={app:app.name,status:'SUCCESS',started:this.now(),duration:(1+Math.random()*1.5).toFixed(1)+'s'};
+      this.setState(s=>({jobStatus:'SUCCESS',results:res,history:[entry,...s.history]}));
+    },1900);
+  }
+
+  now(){
+    const d=new Date();
+    const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    const p=n=>String(n).padStart(2,'0');
+    return mo+' '+d.getDate()+', '+p(d.getHours())+':'+p(d.getMinutes());
+  }
+
+  compute(){
+    const app=this.curApp(); const v=this.state.form;
+    if(app.kind==='mortality'){
+      const age=+v.age, shock=(+v.shock)/100;
+      let surv=1, series=[], rows=[];
+      for(let a=age;a<=100;a++){
+        const qx=Math.min(0.99,(0.00009*Math.exp(0.091*a))*(1+shock));
+        series.push({x:a,y:surv*100});
+        if(a===age||a%5===0) rows.push([a,(qx*100).toFixed(2)+'%',(surv*100).toFixed(1)+'%']);
+        surv*=(1-qx);
+      }
+      return {columns:['Age','Mortality qₓ','Survival'],rows,series};
+    } else {
+      const n=Math.max(1,+v.assets||+v.n||1), vol=(+v.vol||+v.param||0)/100;
+      const eff=vol/Math.sqrt(n);
+      let series=[],rows=[];
+      for(let t=0;t<=24;t++){
+        const val=100*(1+0.004*t)+Math.sin(t*1.25+n*0.3)*eff*120+Math.cos(t*0.6)*eff*40;
+        series.push({x:t,y:val});
+        if(t%4===0) rows.push(['M'+t,'$'+val.toFixed(2),((val/100-1)*100).toFixed(1)+'%']);
+      }
+      return {columns:['Period','Index value','Return'],rows,series};
+    }
+  }
+
+  openModal(){ this.setState({modalOpen:true,modalLoading:false,repoUrl:''}); }
+  closeModal(){ if(this.state.modalLoading) return; this.setState({modalOpen:false}); }
+  register(){
+    if(this.state.modalLoading) return;
+    this.setState({modalLoading:true});
+    clearTimeout(this._t3);
+    this._t3=setTimeout(()=>{
+      const name=this.repoName(this.state.repoUrl);
+      const id='app_'+Date.now();
+      const initials=name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      const newApp={id,name,initials,
+        desc:'Imported from GitHub. Configure inputs and run to generate results.',
+        kind:'portfolio',isNew:true,
+        fields:[
+          {key:'n',label:'Sample size',min:10,max:1000,step:10,def:250,unit:''},
+          {key:'param',label:'Confidence',min:0,max:100,step:1,def:35,unit:'%'}
+        ]};
+      this.setState(s=>({apps:[...s.apps,newApp],modalOpen:false,modalLoading:false}));
+    },2100);
+  }
+  repoName(url){
+    if(!url||!url.trim()) return 'New Model';
+    let seg=url.trim().replace(/\/+$/,'').split('/').pop().replace(/\.git$/,'');
+    seg=seg.replace(/[-_]+/g,' ').trim();
+    if(!seg) return 'New Model';
+    return seg.replace(/\b\w/g,c=>c.toUpperCase());
+  }
+
+  fmt(v){ const a=Math.abs(v); if(a>=1000) return (v/1000).toFixed(1)+'k'; if(a>=100) return Math.round(v); return v.toFixed(0); }
+
+  buildChart(res){
+    const accent=this.props.accentColor||'#4f8cff';
+    const h=React.createElement;
+    const W=560,H=300,pl=46,pr=18,pt=18,pb=36;
+    const xs=res.series.map(s=>s.x),ys=res.series.map(s=>s.y);
+    const minX=Math.min.apply(null,xs),maxX=Math.max.apply(null,xs);
+    let minY=Math.min.apply(null,ys),maxY=Math.max.apply(null,ys);
+    if(minY===maxY){minY-=1;maxY+=1;}
+    const padY=(maxY-minY)*0.12;minY-=padY;maxY+=padY;
+    const X=x=>pl+(maxX===minX?0:(x-minX)/(maxX-minX))*(W-pl-pr);
+    const Y=y=>H-pb-(y-minY)/(maxY-minY)*(H-pt-pb);
+    const pts=res.series.map(s=>[X(s.x),Y(s.y)]);
+    const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+    const area=line+' L '+pts[pts.length-1][0].toFixed(1)+' '+(H-pb)+' L '+pts[0][0].toFixed(1)+' '+(H-pb)+' Z';
+    const kids=[];
+    for(let i=0;i<=4;i++){
+      const yy=pt+i*(H-pt-pb)/4;
+      const val=maxY-(maxY-minY)*i/4;
+      kids.push(h('line',{key:'g'+i,x1:pl,y1:yy,x2:W-pr,y2:yy,stroke:'#222831',strokeWidth:1}));
+      kids.push(h('text',{key:'yl'+i,x:pl-8,y:yy+4,textAnchor:'end',fontSize:11,fill:'#6b7280'},this.fmt(val)));
+    }
+    const nlab=Math.min(6,xs.length);
+    for(let i=0;i<nlab;i++){
+      const x=minX+(maxX-minX)*i/(nlab-1||1);
+      kids.push(h('text',{key:'xl'+i,x:X(x),y:H-pb+20,textAnchor:'middle',fontSize:11,fill:'#6b7280'},Math.round(x)));
+    }
+    kids.push(h('defs',{key:'def'},h('linearGradient',{id:'ag',x1:0,y1:0,x2:0,y2:1},
+      h('stop',{offset:'0%',stopColor:accent,stopOpacity:0.28}),
+      h('stop',{offset:'100%',stopColor:accent,stopOpacity:0}))));
+    kids.push(h('path',{key:'area',d:area,fill:'url(#ag)'}));
+    kids.push(h('path',{key:'line',d:line,fill:'none',stroke:accent,strokeWidth:2.5,strokeLinejoin:'round',strokeLinecap:'round'}));
+    const lp=pts[pts.length-1];
+    kids.push(h('circle',{key:'dot',cx:lp[0],cy:lp[1],r:4,fill:accent,stroke:'#101318',strokeWidth:2}));
+    return h('svg',{viewBox:'0 0 '+W+' '+H,style:{width:'100%',height:'auto',display:'block'}},kids);
+  }
+
+  statusBadge(st){
+    const m={
+      IDLE:{label:'IDLE',color:'#8a909c',bg:'rgba(138,144,156,.14)'},
+      PENDING:{label:'PENDING',color:'#fbbf24',bg:'rgba(251,191,36,.14)'},
+      RUNNING:{label:'RUNNING',color:'#fbbf24',bg:'rgba(251,191,36,.14)'},
+      SUCCESS:{label:'SUCCESS',color:'#34d399',bg:'rgba(52,211,153,.14)'},
+      FAILED:{label:'FAILED',color:'#f87171',bg:'rgba(248,113,113,.14)'}
+    };
+    return m[st]||m.IDLE;
+  }
+
+  renderVals(){
+    const s=this.state;
+    const accent=this.props.accentColor||'#4f8cff';
+    const app=this.curApp();
+    const fields=(app?app.fields:[]).map(f=>({
+      label:f.label, min:f.min, max:f.max, step:f.step,
+      value:s.form[f.key]!=null?s.form[f.key]:f.def,
+      display:(s.form[f.key]!=null?s.form[f.key]:f.def)+(f.unit||''),
+      onChange:e=>this.setField(f.key,e.target.value)
+    }));
+    const apps=s.apps.map(a=>({
+      name:a.name, desc:a.desc, initials:a.initials, isNew:a.isNew,
+      fieldNames:a.fields.map(f=>f.label),
+      onLaunch:()=>this.launch(a.id)
+    }));
+    const badge=this.statusBadge(s.jobStatus);
+    let resultColumns=[],resultRows=[],chartEl=null;
+    if(s.results){ resultColumns=s.results.columns; resultRows=s.results.rows; chartEl=this.buildChart(s.results); }
+    const historyRows=s.history.map((r,i)=>{
+      const b=this.statusBadge(r.status);
+      return {app:r.app,status:r.status,started:r.started,duration:r.duration,
+        badgeColor:b.color,badgeBg:b.bg, rowBg:i%2?'rgba(255,255,255,.018)':'transparent'};
+    });
+    return {
+      accent,
+      isMarketplace:s.page==='marketplace',
+      isApp:s.page==='app',
+      isHistory:s.page==='history',
+      navMarketColor:s.page==='marketplace'?accent:'#9aa0ab',
+      navHistColor:s.page==='history'?accent:'#9aa0ab',
+      apps, currentApp:app, fields,
+      jobBadgeColor:badge.color, jobBadgeBg:badge.bg, jobLabel:badge.label,
+      showSpinner:s.jobStatus==='PENDING'||s.jobStatus==='RUNNING',
+      showEmpty:s.jobStatus==='IDLE',
+      showResults:s.jobStatus==='SUCCESS'&&!!s.results,
+      resultColumns, resultRows, chartEl,
+      modalOpen:s.modalOpen, modalLoading:s.modalLoading,
+      modalFormVisible:s.modalOpen&&!s.modalLoading, repoUrl:s.repoUrl,
+      historyRows,
+      goMarket:()=>this.setState({page:'marketplace'}),
+      goHistory:()=>this.setState({page:'history'}),
+      openModal:()=>this.openModal(),
+      closeModal:()=>this.closeModal(),
+      stopProp:e=>e.stopPropagation(),
+      register:()=>this.register(),
+      onRepo:e=>this.setState({repoUrl:e.target.value}),
+      run:()=>this.run()
+    };
+  }
+}
+</script>
+</body>
+</html>
