@@ -1,0 +1,209 @@
+import DocsLayout from '../../components/docs/DocsLayout'
+import Callout from '../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Add an App">{children}</DocsLayout>
+}
+
+# Add an App
+
+This guide walks through publishing a new actuarial model to the marketplace end-to-end — from an empty folder to a running app.
+
+## Prerequisites
+
+- A public Git repository (GitHub, GitLab, or any URL the backend can `git clone`)
+- Python knowledge to write the model logic
+- The marketplace running locally (`docker compose up`)
+
+---
+
+## Step 1 — Create the repository
+
+Create a new repository and initialise it. The backend will clone this URL on registration.
+
+```bash
+git init surrender-rate-model
+cd surrender-rate-model
+```
+
+Your repo only needs two files at the root:
+
+```
+surrender-rate-model/
+├── manifest.json
+└── function.py
+```
+
+Everything else (README, tests, notebooks) is ignored by the marketplace.
+
+---
+
+## Step 2 — Write manifest.json
+
+Create `manifest.json` at the repo root. This file describes your app and defines the input form.
+
+```json
+{
+  "name": "Surrender Rate Model",
+  "description": "Projects policyholder surrender rates under duration and rate stress scenarios.",
+  "inputs": {
+    "duration": {
+      "type": "number",
+      "label": "Policy duration",
+      "min": 1,
+      "max": 30,
+      "step": 1,
+      "default": 10,
+      "unit": " yrs"
+    },
+    "rate_stress": {
+      "type": "number",
+      "label": "Interest rate stress",
+      "min": -300,
+      "max": 300,
+      "step": 25,
+      "default": 0,
+      "unit": " bps"
+    }
+  }
+}
+```
+
+**Rules:**
+- `name` is the only required top-level field
+- Each key under `inputs` becomes a labelled slider in the form
+- `unit` is displayed after the current slider value (e.g. `10 yrs`, `+50 bps`)
+
+See the [App Contract](/docs/app-contract) page for the full field reference.
+
+---
+
+## Step 3 — Write function.py
+
+Create `function.py` at the repo root. It must expose one async function named `run`:
+
+```python
+import asyncio
+import numpy as np
+
+
+async def run(inputs: dict) -> dict:
+    await asyncio.sleep(3)  # simulate computation
+
+    duration = int(inputs.get("duration", 10))
+    rate_stress_bps = float(inputs.get("rate_stress", 0))
+
+    years = list(range(1, duration + 1))
+    base_lapse = [0.15 * (0.82 ** y) + 0.02 for y in years]
+    rate_factor = 1 + max(0, rate_stress_bps) / 10000 * 5
+    lapse = [min(l * rate_factor, 0.99) for l in base_lapse]
+
+    in_force = []
+    current = 1.0
+    for l in lapse:
+        current *= (1 - l)
+        in_force.append(current)
+
+    return {
+        "columns": ["Year", "Lapse Rate", "In-Force"],
+        "series": [{"x": y, "y": round(s * 100, 2)} for y, s in zip(years, in_force)],
+        "table": [
+            {"year": y, "lapse_rate": f"{l*100:.2f}%", "in_force": f"{s*100:.1f}%"}
+            for y, l, s in zip(years, lapse, in_force)
+        ],
+        "summary": {
+            "duration": f"{duration} years",
+            "rate_stress": f"{int(rate_stress_bps):+d} bps",
+            "terminal_in_force": f"{in_force[-1]*100:.1f}%",
+        },
+    }
+```
+
+**Key rules for `function.py`:**
+- The function **must** be `async def run(inputs: dict) -> dict`
+- Input keys match the keys defined in `manifest.json`
+- The return value must be a JSON-serialisable dict
+- Raise any exception to signal failure — the backend catches it and sets status to `FAILED`
+
+---
+
+## Step 4 — Push and register
+
+Commit both files and push to your remote:
+
+```bash
+git add manifest.json function.py
+git commit -m "initial model"
+git remote add origin https://github.com/you/surrender-rate-model.git
+git push -u origin main
+```
+
+Open the marketplace at [http://localhost:3000](http://localhost:3000) and click **+ Add App**. Paste your repository URL and click **Add**.
+
+What happens behind the scenes:
+1. `POST /apps/register` receives `{ repo_url: "https://…" }`
+2. The backend runs `git.Repo.clone_from(repo_url, dest)`
+3. Validates that both `manifest.json` and `function.py` exist
+4. Parses the manifest and creates an `App` row in the database
+5. The new card appears in the marketplace grid immediately
+
+<Callout type="info">
+  The repository URL must be publicly accessible — the backend clones over HTTPS without authentication. Private repos require adding an SSH key or access token to the backend container.
+</Callout>
+
+---
+
+## Step 5 — Run the app
+
+Click **Launch** on your new card. The input form is generated automatically from your `manifest.json`. Adjust the sliders and click **Run**.
+
+What happens:
+1. `POST /apps/{id}/run` is called with your slider values
+2. A `JobRun` row is created (status: `PENDING`)
+3. A WebSocket opens and shows a live status indicator
+4. The backend dynamically loads your `function.py` and calls `await run(inputs)`
+5. On completion, the result (chart + table + summary) renders in the panel
+
+---
+
+## Common errors
+
+### 422 — manifest.json not found
+
+The manifest must be at the **root** of the repository, not in a subdirectory.
+
+```
+✗  myrepo/models/manifest.json    ← wrong
+✓  myrepo/manifest.json           ← correct
+```
+
+### 422 — function.py not found
+
+Same rule: `function.py` must be at the repository root.
+
+### 422 — Failed to clone repo
+
+- Double-check the URL is correct and the repo is public
+- GitHub: use `https://github.com/user/repo.git` (with `.git`)
+- The backend needs network access to the external URL — check your Docker network settings
+
+### Status: FAILED after launching
+
+The `run` function raised an unhandled exception. Check the backend logs:
+
+```bash
+docker compose logs backend -f
+```
+
+Common causes:
+- `KeyError` — an input key in `function.py` doesn't match the `manifest.json` key
+- `ModuleNotFoundError` — a library is imported that isn't installed in the backend image
+- `TypeError` — wrong type conversion (e.g. `float(inputs["x"])` when `x` is already a number)
+
+### Duplicate app name
+
+If a repo URL was already cloned, the backend deletes the old folder and re-clones. You can safely re-register an updated repo.
+
+<Callout type="tip">
+  During development, push changes to your repo and re-register the URL in the marketplace. The old clone is replaced with the latest version.
+</Callout>

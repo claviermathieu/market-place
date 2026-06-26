@@ -1,0 +1,130 @@
+import DocsLayout from '../../components/docs/DocsLayout'
+import Callout from '../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Architecture">{children}</DocsLayout>
+}
+
+# Architecture
+
+MCLAVIER Marketplace is a three-tier web application: a **Next.js** frontend, a **FastAPI** backend, and a **PostgreSQL** database. Actuarial models live as self-contained folders under `backend/functions/` and are executed on-demand via an async job pipeline.
+
+## Stack overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                          Browser                             │
+│                                                              │
+│  Next.js 14 (React 18) — pages router                       │
+│  ├─ pages/index.js          Marketplace grid                 │
+│  ├─ pages/apps/[id].js      App runner + live WebSocket      │
+│  ├─ pages/history.js        Run history                      │
+│  └─ pages/docs/*            This documentation              │
+└─────────────────────────────┬────────────────────────────────┘
+                              │ HTTP REST + WebSocket
+                              │ NEXT_PUBLIC_API_URL  (:8000)
+                              │ NEXT_PUBLIC_WS_URL   (:8000)
+┌─────────────────────────────▼────────────────────────────────┐
+│                     FastAPI (Python 3.11)                    │
+│                                                              │
+│  GET  /apps              list all registered apps            │
+│  GET  /apps/{id}         fetch single app                    │
+│  POST /apps/register     clone git repo, validate, persist   │
+│  POST /apps/{id}/run     create JobRun + schedule task       │
+│  GET  /runs              list all runs (history)             │
+│  GET  /runs/{id}         poll run status                     │
+│  WS   /ws/runs/{id}      stream status (3-second poll)       │
+└────────────┬─────────────────────────────────────────────────┘
+             │ SQLAlchemy 2 async engine (asyncpg driver)
+┌────────────▼─────────────────────────────────────────────────┐
+│                       PostgreSQL                             │
+│                                                              │
+│  users        id, email, role                               │
+│  apps         id, name, description, function_path, …       │
+│  job_runs     id, app_id, user_id, status, started_at, …    │
+│  job_results  run_id, payload (JSONB)                        │
+└────────────┬─────────────────────────────────────────────────┘
+             │ importlib.util  (dynamic module loader)
+┌────────────▼─────────────────────────────────────────────────┐
+│                      functions/                              │
+│                                                              │
+│  mortality/                                                  │
+│  ├─ manifest.json   input schema + metadata                  │
+│  └─ function.py     async def run(inputs) → dict            │
+│                                                              │
+│  pricer/                                                     │
+│  └─ …                                                        │
+│                                                              │
+│  <your-app>/                                                 │
+│  └─ …                                                        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Layer breakdown
+
+### Next.js frontend
+
+The frontend is a Next.js 14 app using the **pages router**. It speaks to the backend over HTTP and WebSocket exclusively — no server-side database access.
+
+Two environment variables control where the frontend looks for the API:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | REST requests |
+| `NEXT_PUBLIC_WS_URL` | `ws://localhost:8000` | WebSocket connection |
+
+Both are injected at build time via `next.config.js` and available on the client as `process.env.NEXT_PUBLIC_*`.
+
+### FastAPI backend
+
+The backend uses **FastAPI** with an async `lifespan` context manager that runs on startup:
+
+1. Creates all tables via `Base.metadata.create_all`
+2. Seeds a default admin user and the bundled demo apps (`mortality`, `pricer`)
+
+All database access is non-blocking using **SQLAlchemy 2**'s `AsyncSession` backed by `asyncpg`. HTTP handler dependencies inject a session via `get_db()`.
+
+Job execution uses FastAPI's `BackgroundTasks`. When `POST /apps/{id}/run` is called:
+- A `JobRun` row is created synchronously (status = `PENDING`)
+- `_execute_job` is added to the background task queue
+- The HTTP response (`{ run_id, status }`) is returned **immediately**
+
+The heavy computation happens in `_execute_job`, which runs after the response is sent.
+
+### PostgreSQL
+
+PostgreSQL stores the app registry and complete run history. The `job_results.payload` column is **JSONB**, which means each app can return an arbitrary dict — charts, tables, summaries — and it's stored without a fixed schema.
+
+Sessions in request handlers use `get_db()` dependency injection. Sessions inside `_execute_job` (which runs outside the request lifecycle) use explicit `AsyncSessionLocal()` context managers.
+
+### Functions layer
+
+Each actuarial model is a folder with exactly two files:
+
+- **`manifest.json`** — model name, description, and input schema
+- **`function.py`** — one `async def run(inputs: dict) -> dict` callable
+
+The backend discovers and loads function modules using Python's `importlib.util.spec_from_file_location`, which dynamically loads `function.py` by path at runtime. This means **no backend restart is needed** when a new app is registered — the module is loaded fresh for each job execution.
+
+## End-to-end data flow
+
+Here is the complete path from clicking **Launch** to seeing results in the browser:
+
+1. User opens `/apps/{id}` and fills in the JobForm
+2. User clicks **Run** → frontend calls `POST /apps/{id}/run` with `{ inputs: { … } }`
+3. FastAPI creates a `JobRun` row (`status = PENDING`) and returns `{ run_id, status }`
+4. `_execute_job(run_id, function_path, inputs)` is scheduled as a BackgroundTask
+5. Frontend opens a WebSocket at `ws://…/ws/runs/{run_id}`
+6. WebSocket handler enters a polling loop (polls DB every **3 seconds**), sending `{ status, run_id, result }`
+7. `_execute_job` sets status → `RUNNING`, dynamically loads `function.py`, and `await`s `run(inputs)`
+8. On success: status → `SUCCESS`, a `JobResult` row is created with the return value
+9. Next WebSocket poll returns `result != null` → frontend renders charts and table
+10. Frontend detects terminal status (`SUCCESS` or `FAILED`) and closes the WebSocket
+
+<Callout type="info">
+  The WebSocket handler uses a simple **3-second polling loop** (`asyncio.sleep(3)`) rather than a push-based mechanism. For production at scale, consider replacing this with PostgreSQL `LISTEN/NOTIFY` or a Redis pub/sub channel to eliminate the polling latency and reduce database load.
+</Callout>
+
+<Callout type="tip">
+  Because `_execute_job` opens its own `AsyncSessionLocal` sessions (separate from the request session), it can safely run after the HTTP response has been sent and the original request session has been closed.
+</Callout>

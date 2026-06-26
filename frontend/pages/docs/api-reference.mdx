@@ -1,0 +1,252 @@
+import DocsLayout from '../../components/docs/DocsLayout'
+import Callout from '../../components/docs/Callout'
+import EndpointCard from '../../components/docs/EndpointCard'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="API Reference">{children}</DocsLayout>
+}
+
+# API Reference
+
+All endpoints are served by the FastAPI backend. The default base URL is `http://localhost:8000`.
+
+<Callout type="info">
+  Authentication is not enforced in the current build — all endpoints are open. The database is pre-seeded with a single user (`id=1, email=admin@mclavier.tech`) that is used for all runs.
+</Callout>
+
+---
+
+## Apps
+
+### List apps
+
+<EndpointCard
+  method="GET"
+  path="/apps"
+  description="Returns all registered apps"
+  responseBody={`[
+  {
+    "id": 1,
+    "name": "Mortality Simulator",
+    "description": "Project survival curves under configurable mortality shocks.",
+    "function_name": "mortality",
+    "repo_url": null,
+    "function_path": "/app/functions/mortality",
+    "input_schema": {
+      "age": {
+        "type": "number",
+        "label": "Age",
+        "min": 18,
+        "max": 100,
+        "step": 1,
+        "default": 45,
+        "unit": " yrs"
+      }
+    }
+  }
+]`}
+  curlExample={`curl http://localhost:8000/apps`}
+/>
+
+### Get app
+
+<EndpointCard
+  method="GET"
+  path="/apps/{app_id}"
+  description="Returns a single app by ID"
+  responseBody={`{
+  "id": 1,
+  "name": "Mortality Simulator",
+  "description": "Project survival curves under configurable mortality shocks.",
+  "function_name": "mortality",
+  "repo_url": null,
+  "function_path": "/app/functions/mortality",
+  "input_schema": { "age": { "type": "number", "label": "Age", … } }
+}`}
+  curlExample={`curl http://localhost:8000/apps/1`}
+/>
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| `404 Not Found` | No app exists with the given `app_id` |
+
+### Register app
+
+<EndpointCard
+  method="POST"
+  path="/apps/register"
+  description="Clone a git repo and register it as a new app"
+  requestBody={`{
+  "repo_url": "https://github.com/you/surrender-rate-model.git"
+}`}
+  responseBody={`{
+  "id": 3,
+  "name": "Surrender Rate Model",
+  "description": "Projects surrender rates under stress scenarios.",
+  "function_name": "surrender_rate_model",
+  "repo_url": "https://github.com/you/surrender-rate-model.git",
+  "function_path": "/app/functions/surrender_rate_model",
+  "input_schema": { … }
+}`}
+  curlExample={`curl -X POST http://localhost:8000/apps/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"repo_url": "https://github.com/you/my-model.git"}'`}
+/>
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| `422 Unprocessable Entity` | Git clone failed — bad URL or inaccessible repo |
+| `422 Unprocessable Entity` | `manifest.json` not found at repo root |
+| `422 Unprocessable Entity` | `function.py` not found at repo root |
+
+### Trigger a run
+
+<EndpointCard
+  method="POST"
+  path="/apps/{app_id}/run"
+  description="Create a job run and enqueue execution as a background task"
+  requestBody={`{
+  "inputs": {
+    "age": 55,
+    "shock_rate": 15
+  }
+}`}
+  responseBody={`{
+  "run_id": 42,
+  "status": "PENDING"
+}`}
+  curlExample={`curl -X POST http://localhost:8000/apps/1/run \\
+  -H "Content-Type: application/json" \\
+  -d '{"inputs": {"age": 55, "shock_rate": 15}}'`}
+/>
+
+The response is returned **immediately** — execution happens asynchronously. Use the `run_id` to subscribe to the WebSocket or poll `GET /runs/{run_id}`.
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| `404 Not Found` | No app exists with the given `app_id` |
+
+---
+
+## Runs
+
+### List all runs
+
+<EndpointCard
+  method="GET"
+  path="/runs"
+  description="Returns all runs ordered by start time (newest first)"
+  responseBody={`[
+  {
+    "run_id": 42,
+    "app_id": 1,
+    "app_name": "Mortality Simulator",
+    "status": "SUCCESS",
+    "started_at": "2024-01-15T14:30:00Z",
+    "finished_at": "2024-01-15T14:30:08Z"
+  }
+]`}
+  curlExample={`curl http://localhost:8000/runs`}
+/>
+
+### Get run status
+
+<EndpointCard
+  method="GET"
+  path="/runs/{run_id}"
+  description="Poll run status and result"
+  responseBody={`{
+  "run_id": 42,
+  "status": "SUCCESS",
+  "started_at": "2024-01-15T14:30:00Z",
+  "finished_at": "2024-01-15T14:30:08Z",
+  "result": {
+    "columns": ["Age", "Mortality qₓ", "Survival"],
+    "table": [ { "age": 55, "qx": "0.42%", "survival": "89.3%" } ],
+    "series": [ { "x": 55, "y": 89.3 }, … ],
+    "summary": {
+      "initial_age": 55,
+      "life_expectancy": 27.4
+    }
+  }
+}`}
+  curlExample={`curl http://localhost:8000/runs/42`}
+/>
+
+**Status values:**
+
+| Value | Meaning |
+|---|---|
+| `PENDING` | Run created, not yet started |
+| `RUNNING` | `function.py` is executing |
+| `SUCCESS` | Execution completed, `result` is populated |
+| `FAILED` | `function.py` raised an unhandled exception |
+
+**Error responses:**
+
+| Status | Condition |
+|---|---|
+| `404 Not Found` | No run exists with the given `run_id` |
+
+---
+
+## WebSocket
+
+### Subscribe to run status
+
+<EndpointCard
+  method="WEBSOCKET"
+  path="/ws/runs/{run_id}"
+  description="Stream live status updates for a run"
+  responseBody={`// Each message (JSON):
+{
+  "status": "RUNNING",
+  "run_id": 42,
+  "result": null
+}
+
+// Terminal message (SUCCESS):
+{
+  "status": "SUCCESS",
+  "run_id": 42,
+  "result": { "series": […], "table": […], "summary": {…} }
+}
+
+// If run_id does not exist:
+{ "status": "NOT_FOUND" }`}
+  curlExample={`# Using websocat
+websocat ws://localhost:8000/ws/runs/42
+
+# Using wscat
+wscat -c ws://localhost:8000/ws/runs/42`}
+/>
+
+**WebSocket lifecycle:**
+
+1. Client connects — server accepts immediately
+2. Server polls the database every **3 seconds** and sends a status message
+3. When status is `SUCCESS` or `FAILED`, one final message is sent and the server closes the connection
+4. If the `run_id` does not exist, a `NOT_FOUND` message is sent and the connection is closed
+5. If the client disconnects early, the server catches `WebSocketDisconnect` and exits cleanly
+
+<Callout type="info">
+  The frontend connects to the WebSocket immediately after receiving the `run_id` from `POST /apps/{id}/run`. It processes each message to update the status indicator and, once a non-null `result` arrives, renders the output panel.
+</Callout>
+
+---
+
+## Health check
+
+<EndpointCard
+  method="GET"
+  path="/health"
+  description="Simple liveness check"
+  responseBody={`{ "status": "ok" }`}
+  curlExample={`curl http://localhost:8000/health`}
+/>

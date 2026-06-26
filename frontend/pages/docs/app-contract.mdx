@@ -1,0 +1,199 @@
+import DocsLayout from '../../components/docs/DocsLayout'
+import Callout from '../../components/docs/Callout'
+import CodeBlock from '../../components/docs/CodeBlock'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="App Contract">{children}</DocsLayout>
+}
+
+# App Contract
+
+Every app registered in the marketplace must supply two files at the **root of its repository**: `manifest.json` and `function.py`. Together they form the app contract — the interface between the marketplace and your model.
+
+## manifest.json
+
+The manifest describes your app and declares its inputs so the marketplace can auto-generate the run form.
+
+```json
+{
+  "name": "My Model",
+  "description": "Short description shown on the marketplace card.",
+  "inputs": {
+    "field_key": {
+      "type": "number",
+      "label": "Human-readable label",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 50,
+      "unit": "%"
+    }
+  }
+}
+```
+
+### Top-level fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✓ | Display name on the marketplace card |
+| `description` | string | — | Short description (shown on card and app page) |
+| `inputs` | object | — | Map of input field keys to field specs |
+
+### Input field spec
+
+Each key under `inputs` maps to a field spec object:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"number"` | ✓ | Field type — currently `number` is supported |
+| `label` | string | ✓ | Label shown above the form slider |
+| `min` | number | — | Minimum slider value (default: `0`) |
+| `max` | number | — | Maximum slider value (default: `100`) |
+| `step` | number | — | Slider step increment (default: `1`) |
+| `default` | number | — | Initial value when the form loads |
+| `unit` | string | — | Unit suffix appended to the displayed value (e.g. `" yrs"`, `"%"`) |
+
+<Callout type="info">
+  Only `"number"` type is currently supported. Number fields are rendered as range sliders in the UI. Additional types (text, select, boolean) are forward-compatible — you can add them to the manifest and implement support in the `JobForm` component.
+</Callout>
+
+### Validation on registration
+
+When `POST /apps/register` is called, the backend:
+
+1. Clones the repository
+2. Checks that `manifest.json` exists at the repo root — returns **422** if missing
+3. Checks that `function.py` exists at the repo root — returns **422** if missing
+4. Parses `manifest.json` and reads `name`, `description`, `inputs`
+5. Persists an `App` row with `function_path` pointing to the cloned directory
+
+The manifest JSON is not schema-validated beyond being parseable — extra fields are silently ignored.
+
+---
+
+## function.py
+
+`function.py` must export exactly one coroutine:
+
+```python
+async def run(inputs: dict) -> dict:
+    ...
+```
+
+| Requirement | Detail |
+|---|---|
+| Must be `async` | The backend uses `await fn(inputs)` inside an async context |
+| Argument | `inputs: dict` — keys match the field keys in your manifest |
+| Return value | Any JSON-serialisable `dict` — stored as JSONB and forwarded to the frontend |
+
+### What you can do inside `run`
+
+- Use `asyncio.sleep()` for deliberate delays (simulating long computations)
+- Import third-party libraries (`numpy`, `scipy`, `pandas`, etc.) — they must be available in the backend container's Python environment
+- Raise exceptions freely — the backend catches them and sets status to `FAILED`
+
+### What the return dict should contain
+
+The frontend (`ResultPanel`) renders the result dict. The existing components support:
+
+| Key | Type | Purpose |
+|---|---|---|
+| `series` | `[{x, y}]` | Rendered as a line chart |
+| `table` | `[{col: val, …}]` | Rendered as a data table |
+| `columns` | `string[]` | Column order for the table |
+| `summary` | `{label: value}` | Key-value summary cards |
+
+You can return any subset of these keys, or add custom keys — the frontend will render what it recognises and ignore the rest.
+
+---
+
+## Complete worked example
+
+Here is a full **Surrender Rate Model** from scratch.
+
+### manifest.json
+
+```json
+{
+  "name": "Surrender Rate Model",
+  "description": "Projects policyholder surrender rates under duration and rate stress scenarios.",
+  "inputs": {
+    "duration": {
+      "type": "number",
+      "label": "Policy duration",
+      "min": 1,
+      "max": 30,
+      "step": 1,
+      "default": 10,
+      "unit": " yrs"
+    },
+    "rate_stress": {
+      "type": "number",
+      "label": "Interest rate stress",
+      "min": -300,
+      "max": 300,
+      "step": 25,
+      "default": 0,
+      "unit": " bps"
+    }
+  }
+}
+```
+
+### function.py
+
+```python
+import asyncio
+import numpy as np
+
+
+async def run(inputs: dict) -> dict:
+    await asyncio.sleep(3)  # simulate computation time
+
+    duration = int(inputs.get("duration", 10))
+    rate_stress_bps = float(inputs.get("rate_stress", 0))
+
+    years = np.arange(1, duration + 1)
+
+    # Base lapse rate follows a decreasing curve
+    base_lapse = 0.15 * np.exp(-0.18 * years) + 0.02
+
+    # Rate stress adds a spread-driven component (higher rates → more surrenders)
+    rate_factor = 1 + max(0, rate_stress_bps) / 10000 * 5
+    lapse = np.clip(base_lapse * rate_factor, 0, 0.99)
+
+    # Cumulative in-force
+    in_force = np.cumprod(1 - lapse)
+
+    series = [{"x": int(y), "y": round(float(s) * 100, 2)} for y, s in zip(years, in_force)]
+
+    table = [
+        {
+            "year": int(y),
+            "lapse_rate": f"{float(l)*100:.2f}%",
+            "in_force": f"{float(s)*100:.1f}%",
+        }
+        for y, l, s in zip(years, lapse, in_force)
+    ]
+
+    return {
+        "columns": ["Year", "Lapse Rate", "In-Force"],
+        "table": table,
+        "series": series,
+        "summary": {
+            "duration": f"{duration} years",
+            "rate_stress": f"{int(rate_stress_bps):+d} bps",
+            "terminal_in_force": f"{float(in_force[-1])*100:.1f}%",
+            "avg_annual_lapse": f"{float(np.mean(lapse))*100:.2f}%",
+        },
+    }
+```
+
+<Callout type="tip">
+  Keep `function.py` focused on computation. Heavy data loading (CSV, database) should happen at the top of the file as module-level initialisation — `importlib` re-executes the module for each run, so module-level code runs each time. If startup cost matters, cache expensive resources using a module-level variable.
+</Callout>
+
+<Callout type="warning">
+  Third-party libraries imported in `function.py` must be installed in the backend container. Add them to `backend/requirements.txt` and rebuild the Docker image.
+</Callout>
