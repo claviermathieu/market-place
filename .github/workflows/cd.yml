@@ -1,0 +1,48 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start stack
+        run: docker compose up --build -d
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health; then
+              echo "Backend healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become healthy"
+          docker compose logs backend
+          exit 1
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000; then
+              echo "Frontend healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Frontend did not become healthy"
+          docker compose logs frontend
+          exit 1
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

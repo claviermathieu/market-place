@@ -1,0 +1,24 @@
+{
+  "name": "Portfolio Pricer",
+  "description": "Price a diversified asset portfolio across volatility regimes.",
+  "inputs": {
+    "n_assets": {
+      "type": "number",
+      "label": "Number of assets",
+      "min": 1,
+      "max": 200,
+      "step": 1,
+      "default": 50,
+      "unit": ""
+    },
+    "volatility": {
+      "type": "number",
+      "label": "Volatility",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 20,
+      "unit": "%"
+    }
+  }
+}

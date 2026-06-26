@@ -1,0 +1,24 @@
+{
+  "name": "Mortality Simulator",
+  "description": "Project survival curves under configurable mortality shocks.",
+  "inputs": {
+    "age": {
+      "type": "number",
+      "label": "Age",
+      "min": 18,
+      "max": 100,
+      "step": 1,
+      "default": 45,
+      "unit": " yrs"
+    },
+    "shock_rate": {
+      "type": "number",
+      "label": "Mortality shock rate",
+      "min": 0,
+      "max": 50,
+      "step": 0.5,
+      "default": 10,
+      "unit": "%"
+    }
+  }
+}
