@@ -2,6 +2,20 @@
 
 A full-stack actuarial model marketplace built with Next.js, FastAPI, PostgreSQL, and Python functions that simulate Databricks workflows.
 
+## Introduction
+
+Ce projet a vocation a illustrer qu'un actuaire peut dorénavant se former et implémenter une stack complète IT à l'aide de l'IA.
+
+
+
+
+Les développements récents de l'IA permettent d'autonomiser davantage les métiers en supprimant les intermédiaires. L'objectif de ce projet est de permettre à un actuaire de créer, tester et déployer ses modèles actuariels ou ses automatisations de processus en toute autonomie, sans avoir besoin d'un développeur pour créer l'interface utilisateur ou gérer l'infrastructure.
+
+
+
+
+
+
 ## Architecture
 
 ```

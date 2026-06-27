@@ -10,6 +10,7 @@ from database import engine, AsyncSessionLocal, Base
 from models import User, App
 from routers.apps import router as apps_router
 from routers.explorer import router as explorer_router
+from routers.monitor import router as monitor_router
 from routers.runs import router as runs_router
 
 FUNCTIONS_DIR = Path(__file__).parent / "functions"
@@ -66,6 +67,7 @@ app.add_middleware(
 app.include_router(apps_router)
 app.include_router(runs_router)
 app.include_router(explorer_router, prefix="/explorer")
+app.include_router(monitor_router, prefix="/monitor")
 
 
 @app.get("/health")

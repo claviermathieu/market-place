@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 export default function Navbar() {
   const router = useRouter();
   const isMarket = router.pathname === "/";
+  const isMonitor = router.pathname.startsWith("/monitor");
   const isExplorer = router.pathname.startsWith("/explorer");
   const isDocs = router.pathname.startsWith("/docs");
   const isHistory = router.pathname === "/history";
@@ -54,6 +55,11 @@ export default function Navbar() {
           label="Marketplace"
           active={isMarket}
           onClick={() => router.push("/")}
+        />
+        <NavItem
+          label="Monitor"
+          active={isMonitor}
+          onClick={() => router.push("/monitor")}
         />
         <NavItem
           label="Explorer"

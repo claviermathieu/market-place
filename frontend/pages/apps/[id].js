@@ -15,6 +15,7 @@ export default function AppPage() {
   const [loading, setLoading] = useState(true);
   const [jobStatus, setJobStatus] = useState("IDLE");
   const [result, setResult] = useState(null);
+  const [runId, setRunId] = useState(null);
   const wsRef = useRef(null);
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function AppPage() {
       });
       if (!res.ok) throw new Error("Failed to start run");
       const { run_id } = await res.json();
+      setRunId(run_id);
       openWebSocket(run_id);
     } catch {
       setJobStatus("FAILED");
@@ -138,7 +140,7 @@ export default function AppPage() {
 
         <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
           <JobForm app={app} onRun={handleRun} jobStatus={jobStatus} />
-          <ResultPanel jobStatus={jobStatus} result={result} />
+          <ResultPanel jobStatus={jobStatus} result={result} runId={runId} />
         </div>
       </div>
     </div>

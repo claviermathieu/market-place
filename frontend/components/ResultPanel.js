@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   LineChart,
   Line,
@@ -9,11 +10,35 @@ import {
   AreaChart,
 } from "recharts";
 
-export default function ResultPanel({ jobStatus, result }) {
-  const showEmpty = jobStatus === "IDLE";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export default function ResultPanel({ jobStatus, result, runId }) {
+  const chartRef = useRef(null);
+  const showEmpty   = jobStatus === "IDLE";
   const showSpinner = jobStatus === "PENDING" || jobStatus === "RUNNING";
   const showResults = jobStatus === "SUCCESS" && result;
-  const showFailed = jobStatus === "FAILED";
+  const showFailed  = jobStatus === "FAILED";
+
+  function downloadCsv() {
+    window.open(`${API}/runs/${runId}/export/csv`, "_blank");
+  }
+
+  function downloadPdf() {
+    window.open(`${API}/runs/${runId}/export/pdf`, "_blank");
+  }
+
+  async function downloadPng() {
+    if (!chartRef.current) return;
+    const html2canvas = (await import("html2canvas")).default;
+    const canvas = await html2canvas(chartRef.current, {
+      backgroundColor: "#101318",
+      scale: 2,
+    });
+    const link = document.createElement("a");
+    link.download = `chart-run-${runId}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  }
 
   return (
     <div
@@ -29,18 +54,58 @@ export default function ResultPanel({ jobStatus, result }) {
         flexDirection: "column",
       }}
     >
-      <h3
-        style={{
-          margin: "0 0 18px",
-          fontSize: 13,
-          fontWeight: 600,
-          letterSpacing: "0.02em",
-          textTransform: "uppercase",
-          color: "#7a818d",
-        }}
-      >
-        Results
-      </h3>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 18 }}>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            textTransform: "uppercase",
+            color: "#7a818d",
+            flex: 1,
+          }}
+        >
+          Results
+        </h3>
+
+        {showResults && runId && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {[
+              ["↓ CSV", downloadCsv],
+              ["↓ PDF", downloadPdf],
+              ["↓ PNG", downloadPng],
+            ].map(([label, fn]) => (
+              <button
+                key={label}
+                onClick={fn}
+                style={{
+                  padding: "4px 11px",
+                  border: "1px solid #2f3947",
+                  borderRadius: 7,
+                  background: "transparent",
+                  color: "#8a909c",
+                  fontFamily: "inherit",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "border-color 0.15s, color 0.15s",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#4f8cff";
+                  e.currentTarget.style.color = "#4f8cff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#2f3947";
+                  e.currentTarget.style.color = "#8a909c";
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       {showEmpty && (
         <div
@@ -125,6 +190,7 @@ export default function ResultPanel({ jobStatus, result }) {
       {showResults && (
         <div className="animate-fadeup">
           <div
+            ref={chartRef}
             style={{
               border: "1px solid #232932",
               borderRadius: 11,
