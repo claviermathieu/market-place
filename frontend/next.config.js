@@ -6,8 +6,4 @@ const withMDX = require('@next/mdx')({
 module.exports = withMDX({
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'mdx'],
-  env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000',
-  },
 })
