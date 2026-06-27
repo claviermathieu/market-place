@@ -177,11 +177,12 @@ async def export_pdf(run_id: int, db: AsyncSession = Depends(get_db)):
         story.append(Spacer(1, 4 * mm))
 
     if table_data:
+        row_keys = list(table_data[0].keys())
         story.append(Paragraph("Results", h2))
         avail = 170 * mm
-        cw    = [avail / max(len(columns), 1)] * len(columns)
+        cw    = [avail / max(len(row_keys), 1)] * len(row_keys)
         story.append(_tbl(
-            [columns] + [[str(row.get(c, "")) for c in columns] for row in table_data],
+            [columns] + [[str(row.get(k, "")) for k in row_keys] for row in table_data],
             col_widths=cw,
         ))
 

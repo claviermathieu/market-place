@@ -187,7 +187,11 @@ export default function ResultPanel({ jobStatus, result, runId }) {
         </div>
       )}
 
-      {showResults && (
+      {showResults && (() => {
+        const rowKeys = result.table && result.table.length > 0
+          ? Object.keys(result.table[0])
+          : [];
+        return (
         <div className="animate-fadeup">
           <div
             ref={chartRef}
@@ -274,7 +278,7 @@ export default function ResultPanel({ jobStatus, result, runId }) {
               <tbody>
                 {result.table.map((row, i) => (
                   <tr key={i}>
-                    {Object.values(row).map((cell, j) => (
+                    {rowKeys.map((key, j) => (
                       <td
                         key={j}
                         style={{
@@ -284,7 +288,7 @@ export default function ResultPanel({ jobStatus, result, runId }) {
                           fontVariantNumeric: "tabular-nums",
                         }}
                       >
-                        {String(cell)}
+                        {String(row[key])}
                       </td>
                     ))}
                   </tr>
@@ -293,7 +297,8 @@ export default function ResultPanel({ jobStatus, result, runId }) {
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
