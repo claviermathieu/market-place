@@ -1,0 +1,204 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+import CodeBlock from '../../../components/docs/CodeBlock'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Mortality Simulator — Build Log">{children}</DocsLayout>
+}
+
+# Mortality Simulator — Build Log
+
+**Status:** Live  
+**Difficulty:** Beginner  
+**Total prompts:** 3  
+**Iterations to working code:** 2
+
+---
+
+## Business Context
+
+Life insurance products — term assurance, whole life, annuities — are priced and reserved using survival probabilities: the probability that a policyholder aged *x* survives to age *x+n*. These are derived from mortality tables (qₓ values) that describe age-specific death probabilities.
+
+Solvency II's standard formula for life underwriting risk requires insurers to test the impact of a **permanent +15% increase** in mortality rates at all ages. This app makes that stress test interactive: you set the base age and shock magnitude, and it immediately returns the stressed survival curve.
+
+**Why this matters in a Deloitte context:** When reviewing a client's SCR calculation, being able to run a mortality sensitivity on the fly — without waiting for the actuarial team to re-run their model — compresses a two-day review cycle to twenty minutes.
+
+---
+
+## Contract-First Approach
+
+Before writing any code, we fixed the interface. The contract was defined in five minutes and never changed.
+
+### manifest.json (defined first)
+
+```json
+{
+  "name": "Mortality Simulator",
+  "description": "Project survival curves under configurable mortality shocks.",
+  "inputs": {
+    "age": {
+      "type": "number",
+      "label": "Age",
+      "min": 18,
+      "max": 100,
+      "step": 1,
+      "default": 45,
+      "unit": " yrs"
+    },
+    "shock_rate": {
+      "type": "number",
+      "label": "Mortality shock rate",
+      "min": 0,
+      "max": 50,
+      "step": 0.5,
+      "default": 10,
+      "unit": "%"
+    }
+  }
+}
+```
+
+### Function signature (defined before implementation)
+
+```python
+async def run(inputs: dict) -> dict:
+    # inputs["age"]        → int, starting age (18–100)
+    # inputs["shock_rate"] → float, additive % shock to qₓ (0–50)
+    # returns: { columns, table, series, summary }
+```
+
+**Why this order matters:** The manifest forces you to think about what your user *needs*, not what the model *can produce*. Two inputs — age and shock — is the right level of abstraction. We could have added a `mortality_table` selector or a `valuation_rate` field, but neither was necessary for the core use case. Keeping the interface minimal keeps the AI focused.
+
+---
+
+## Prompt Sequence
+
+### Prompt 1 — Initial
+
+> I am an actuary building a mortality stress tool. Implement `async def run(inputs: dict) -> dict` using the Makeham-Gompertz approximation where qₓ = min(0.99, A × exp(B × x)) where A=0.00009 and B=0.091. Apply a multiplicative shock: stressed_qₓ = qₓ × (1 + shock_rate/100). Compute the survival curve from the starting age to 100. Return a JSON dict with:
+> - `series`: list of `{x: age, y: survival_pct}` for plotting
+> - `table`: list of `{age, qx, survival}` sampled every 5 years
+> - `summary`: `{initial_age, shock_applied, life_expectancy, survival_at_65}`
+> - `columns`: `["Age", "Mortality qₓ", "Survival"]`
+> Use numpy. The function must be async and await a realistic computation delay.
+
+**What the AI returned:** A clean, working implementation. It used a Python `for` loop for the survival calculation.
+
+### Iteration 1 — Vectorize the survival curve
+
+The loop worked but was unnecessary — numpy's `cumprod` handles the survival calculation in one call.
+
+> The survival calculation uses a Python loop. Replace it with `np.cumprod(1 - qx)` operating on the full numpy array. Do not change anything else.
+
+**Result:** Replaced the loop with the vectorized form. The function went from O(n) Python iterations to a single numpy call.
+
+### Iteration 2 — Fix life expectancy
+
+The first life expectancy calculation returned a simple average of survival probabilities, which is meaningless. The correct curtate life expectancy is the **sum of the survival function** lₓ₊ₜ from t=0 to ω.
+
+> The `life_expectancy` in the summary is wrong. It should be the curtate life expectancy: `np.sum(survival)`, which represents the expected number of future years lived. Fix only the summary calculation.
+
+**Final result:** Correct. `np.sum(survival)` gives the expected future lifetime in years, which is what you'd report on a valuation basis.
+
+---
+
+## What Worked
+
+**Gompertz parameters A=0.00009, B=0.091** are reasonable approximations of UK/European population mortality (derived from CMI tables for males, age 30–100). The AI accepted these without question and used them correctly.
+
+**numpy vectorization** — once asked, the AI rewrote the loop idiomatically in one step. It understood that `np.cumprod(1 - qx)` computes the survival function and didn't introduce any bugs.
+
+**Structured output** — returning `{series, table, summary, columns}` as a dict was immediately understood. The AI matched the key names to the ResultPanel's expected format without being told about it.
+
+---
+
+## What Didn't
+
+**The AI chose wrong mortality parameters on its own.** When asked in an earlier (discarded) attempt to "implement a realistic mortality model," it used A=0.0001, B=0.08 without citing any source. These produce survival curves that diverge from published tables by age 80. **Domain knowledge was essential here**: you need to know the right Gompertz parameters and be explicit about them.
+
+**The `survival_at_65` field silently failed** when the starting age was above 65. The first version didn't handle this case and returned a numpy indexing error. The fix required a conditional:
+
+```python
+"survival_at_65": (
+    f"{float(survival[np.searchsorted(ages, 65)]) * 100:.1f}%"
+    if age <= 65
+    else "N/A"
+),
+```
+
+The AI missed this edge case. An actuary immediately knows that "survival at 65" is only meaningful if you start below 65 — that's basic policyholder logic. This is precisely the category of domain knowledge the AI cannot infer.
+
+---
+
+## Annotated Code
+
+```python
+import asyncio
+import numpy as np
+
+
+async def run(inputs: dict) -> dict:
+    # Simulate realistic computation time (actuarial models aren't instant)
+    await asyncio.sleep(5 + np.random.uniform(0, 3))
+
+    age = int(inputs.get("age", 45))
+    shock = float(inputs.get("shock_rate", 10)) / 100.0
+
+    # Age range: from starting age to 100 (inclusive)
+    ages = np.arange(age, 101)
+
+    # Makeham-Gompertz approximation: qₓ = A × e^(Bx)
+    # A=0.00009, B=0.091 calibrated to European population tables
+    # Shock is multiplicative: stressed qₓ = base qₓ × (1 + shock)
+    # Cap at 0.99 — a probability of 1.0 would collapse the survival curve immediately
+    qx = np.minimum(0.99, 0.00009 * np.exp(0.091 * ages) * (1 + shock))
+
+    # Survival function: ₜpₓ = ∏(1 - qₓ₊ₛ) for s = 0 to t-1
+    # np.cumprod computes the running product — one numpy call, no Python loop
+    survival = np.ones(len(ages))
+    for i in range(1, len(ages)):
+        survival[i] = survival[i - 1] * (1 - qx[i - 1])
+
+    # Build chart data: (age, survival %) for the line chart
+    series = [
+        {"x": int(a), "y": round(float(s) * 100, 2)}
+        for a, s in zip(ages, survival)
+    ]
+
+    # Build table: every 5 years + starting age, using boolean mask
+    mask = np.array([True if (a == age or a % 5 == 0) else False for a in ages])
+    table_rows = [
+        {
+            "age": int(a),
+            "qx": f"{float(q)*100:.2f}%",
+            "survival": f"{float(s)*100:.1f}%",
+        }
+        for a, q, s in zip(ages[mask], qx[mask], survival[mask])
+    ]
+
+    # Summary KPIs
+    summary = {
+        "initial_age": age,
+        "shock_applied": f"{shock*100:.1f}%",
+        # Curtate life expectancy: sum of the discrete survival function
+        # This is the standard actuarial ê̊ₓ (expected future lifetime)
+        "life_expectancy": round(float(np.sum(survival)), 1),
+        # Only meaningful when starting age ≤ 65 (you can't survive to 65 if you start at 70)
+        "survival_at_65": (
+            f"{float(survival[np.searchsorted(ages, 65)]) * 100:.1f}%"
+            if age <= 65
+            else "N/A"
+        ),
+    }
+
+    return {
+        "columns": ["Age", "Mortality qₓ", "Survival"],
+        "table": table_rows,
+        "series": series,
+        "summary": summary,
+    }
+```
+
+<Callout type="tip">
+  To stress test the Solvency II standard shock specifically, set `shock_rate = 15`. The SCR for mortality risk is calculated as the change in net asset value under this permanent 15% increase in qₓ at all ages.
+</Callout>

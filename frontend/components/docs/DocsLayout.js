@@ -4,14 +4,36 @@ import Link from 'next/link'
 import Head from 'next/head'
 import Navbar from '../Navbar'
 
-const NAV = [
-  { href: '/docs', label: 'Overview' },
-  { href: '/docs/architecture', label: 'Architecture' },
-  { href: '/docs/app-contract', label: 'App Contract' },
-  { href: '/docs/add-an-app', label: 'Add an App' },
-  { href: '/docs/api-reference', label: 'API Reference' },
-  { href: '/docs/async-deep-dive', label: 'Async Deep Dive' },
+const NAV_SECTIONS = [
+  {
+    heading: null,
+    items: [
+      { href: '/docs', label: 'Overview' },
+      { href: '/docs/architecture', label: 'Architecture' },
+      { href: '/docs/app-contract', label: 'App Contract' },
+      { href: '/docs/add-an-app', label: 'Add an App' },
+      { href: '/docs/api-reference', label: 'API Reference' },
+      { href: '/docs/async-deep-dive', label: 'Async Deep Dive' },
+    ],
+  },
+  {
+    heading: 'Learning',
+    items: [
+      { href: '/docs/build-log', label: 'Build Logs' },
+      { href: '/docs/build-log/mortality-simulator', label: 'Mortality Simulator', indent: true },
+      { href: '/docs/build-log/portfolio-pricer', label: 'Portfolio Pricer', indent: true },
+      { href: '/docs/ai-guide', label: 'AI Guide' },
+      { href: '/docs/ai-guide/mental-model', label: 'Mental Model', indent: true },
+      { href: '/docs/ai-guide/prompt-patterns', label: 'Prompt Patterns', indent: true },
+      { href: '/docs/ai-guide/contract-first', label: 'Contract First', indent: true },
+      { href: '/docs/ai-guide/iteration-playbook', label: 'Iteration Playbook', indent: true },
+      { href: '/docs/ai-guide/actuary-to-builder', label: 'Actuary to Builder', indent: true },
+      { href: '/docs/roadmap', label: 'App Roadmap' },
+    ],
+  },
 ]
+
+const ALL_ITEMS = NAV_SECTIONS.flatMap((s) => s.items)
 
 const STYLES = `
 /* highlight.js atom-one-dark token colors */
@@ -49,9 +71,8 @@ const STYLES = `
   margin: 28px 0 10px;
 }
 .docs-prose h4 {
-  color: #d7dbe2; font-size: 0.9rem; font-weight: 600;
-  margin: 20px 0 8px; text-transform: uppercase;
-  letter-spacing: 0.05em; color: #6b727e;
+  color: #6b727e; font-size: 0.85rem; font-weight: 700;
+  margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }
 .docs-prose p { color: #9aa0ab; line-height: 1.78; margin: 0 0 16px; }
 .docs-prose a { color: #4f8cff; text-decoration: none; }
@@ -100,39 +121,60 @@ const STYLES = `
 
 function SidebarContent({ pathname }) {
   return (
-    <nav style={{ padding: '24px 0' }}>
-      <div
-        style={{
-          padding: '0 18px 10px',
-          fontSize: 10.5, fontWeight: 700,
-          letterSpacing: '0.09em', color: '#3a4150',
-          textTransform: 'uppercase',
-        }}
-      >
-        Documentation
-      </div>
-      {NAV.map((item) => {
-        const active = pathname === item.href
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            style={{
-              display: 'block',
-              padding: '7px 18px',
-              fontSize: 13.5,
-              fontWeight: active ? 600 : 400,
-              color: active ? '#4f8cff' : '#8a909c',
-              background: active ? 'rgba(79,140,255,.08)' : 'transparent',
-              borderRight: active ? '2px solid #4f8cff' : '2px solid transparent',
-              textDecoration: 'none',
-              transition: 'color 0.12s, background 0.12s',
-            }}
-          >
-            {item.label}
-          </Link>
-        )
-      })}
+    <nav style={{ padding: '20px 0 32px' }}>
+      {NAV_SECTIONS.map((section, si) => (
+        <div key={si}>
+          {section.heading && (
+            <div
+              style={{
+                padding: '16px 18px 6px',
+                fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.1em', color: '#2f3947',
+                textTransform: 'uppercase',
+                borderTop: si > 0 ? '1px solid #151a21' : 'none',
+                marginTop: si > 0 ? 8 : 0,
+              }}
+            >
+              {section.heading}
+            </div>
+          )}
+          {!section.heading && (
+            <div
+              style={{
+                padding: '0 18px 8px',
+                fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.09em', color: '#3a4150',
+                textTransform: 'uppercase',
+              }}
+            >
+              Documentation
+            </div>
+          )}
+          {section.items.map((item) => {
+            const active = pathname === item.href
+            const parentActive = !active && item.indent && pathname.startsWith(item.href.split('/').slice(0, -1).join('/'))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: 'block',
+                  padding: item.indent ? '5px 18px 5px 30px' : '7px 18px',
+                  fontSize: item.indent ? 12.5 : 13.5,
+                  fontWeight: active ? 600 : 400,
+                  color: active ? '#4f8cff' : item.indent ? '#6b727e' : '#8a909c',
+                  background: active ? 'rgba(79,140,255,.08)' : 'transparent',
+                  borderRight: active ? '2px solid #4f8cff' : '2px solid transparent',
+                  textDecoration: 'none',
+                  transition: 'color 0.12s, background 0.12s',
+                }}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
+        </div>
+      ))}
     </nav>
   )
 }
@@ -153,9 +195,9 @@ export default function DocsLayout({ children, title }) {
     setSidebarOpen(false)
   }, [router.pathname])
 
-  const currentIndex = NAV.findIndex((n) => n.href === router.pathname)
-  const prev = currentIndex > 0 ? NAV[currentIndex - 1] : null
-  const next = currentIndex < NAV.length - 1 ? NAV[currentIndex + 1] : null
+  const currentIndex = ALL_ITEMS.findIndex((n) => n.href === router.pathname)
+  const prev = currentIndex > 0 ? ALL_ITEMS[currentIndex - 1] : null
+  const next = currentIndex < ALL_ITEMS.length - 1 ? ALL_ITEMS[currentIndex + 1] : null
 
   return (
     <div style={{ minHeight: '100vh', background: '#0b0d10', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -185,41 +227,32 @@ export default function DocsLayout({ children, title }) {
           </aside>
         )}
 
-        {/* Mobile overlay sidebar */}
+        {/* Mobile overlay */}
         {isMobile && sidebarOpen && (
           <>
             <div
               onClick={() => setSidebarOpen(false)}
-              style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,.65)', zIndex: 30,
-              }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', zIndex: 30 }}
             />
             <aside
               style={{
                 position: 'fixed', top: 0, left: 0, bottom: 0,
                 width: 265, zIndex: 31,
-                background: '#0d1014',
-                borderRight: '1px solid #1b2027',
-                boxShadow: '6px 0 32px rgba(0,0,0,.5)',
-                overflowY: 'auto',
+                background: '#0d1014', borderRight: '1px solid #1b2027',
+                boxShadow: '6px 0 32px rgba(0,0,0,.5)', overflowY: 'auto',
               }}
             >
               <div
                 style={{
-                  padding: '14px 18px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 18px', display: 'flex',
+                  alignItems: 'center', justifyContent: 'space-between',
                   borderBottom: '1px solid #1b2027',
                 }}
               >
                 <span style={{ fontSize: 14, fontWeight: 600, color: '#f3f5f8' }}>Docs</span>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  style={{
-                    background: 'none', border: 'none',
-                    color: '#8a909c', cursor: 'pointer',
-                    fontSize: 22, lineHeight: 1, padding: 0,
-                  }}
+                  style={{ background: 'none', border: 'none', color: '#8a909c', cursor: 'pointer', fontSize: 22, lineHeight: 1, padding: 0 }}
                 >
                   ×
                 </button>
@@ -243,18 +276,15 @@ export default function DocsLayout({ children, title }) {
               <button
                 onClick={() => setSidebarOpen(true)}
                 style={{
-                  background: 'none', border: '1px solid #2f3947',
-                  borderRadius: 6, color: '#8a909c', cursor: 'pointer',
-                  padding: '4px 9px', fontSize: 16, marginRight: 6,
-                  fontFamily: 'inherit',
+                  background: 'none', border: '1px solid #2f3947', borderRadius: 6,
+                  color: '#8a909c', cursor: 'pointer', padding: '4px 9px',
+                  fontSize: 16, marginRight: 6, fontFamily: 'inherit',
                 }}
               >
                 ☰
               </button>
             )}
-            <Link href="/docs" style={{ color: '#6b727e', textDecoration: 'none' }}>
-              Docs
-            </Link>
+            <Link href="/docs" style={{ color: '#6b727e', textDecoration: 'none' }}>Docs</Link>
             {title && (
               <>
                 <span style={{ color: '#2f3947' }}>/</span>
@@ -263,7 +293,7 @@ export default function DocsLayout({ children, title }) {
             )}
           </div>
 
-          {/* MDX content */}
+          {/* Content */}
           <div className="docs-prose">{children}</div>
 
           {/* Previous / Next */}
@@ -280,10 +310,9 @@ export default function DocsLayout({ children, title }) {
                   href={prev.href}
                   style={{
                     display: 'flex', flexDirection: 'column', gap: 3,
-                    padding: '14px 20px',
-                    background: '#14171c', border: '1px solid #232932',
-                    borderRadius: 10, textDecoration: 'none', flex: 1,
-                    maxWidth: '48%',
+                    padding: '14px 20px', background: '#14171c',
+                    border: '1px solid #232932', borderRadius: 10,
+                    textDecoration: 'none', flex: 1, maxWidth: '48%',
                   }}
                 >
                   <span style={{ fontSize: 10.5, color: '#454c57', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
@@ -297,10 +326,9 @@ export default function DocsLayout({ children, title }) {
                   href={next.href}
                   style={{
                     display: 'flex', flexDirection: 'column', gap: 3,
-                    padding: '14px 20px',
-                    background: '#14171c', border: '1px solid #232932',
-                    borderRadius: 10, textDecoration: 'none', flex: 1,
-                    maxWidth: '48%', textAlign: 'right',
+                    padding: '14px 20px', background: '#14171c',
+                    border: '1px solid #232932', borderRadius: 10,
+                    textDecoration: 'none', flex: 1, maxWidth: '48%', textAlign: 'right',
                   }}
                 >
                   <span style={{ fontSize: 10.5, color: '#454c57', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>

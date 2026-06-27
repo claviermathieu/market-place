@@ -1,0 +1,169 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Prompt Patterns">{children}</DocsLayout>
+}
+
+# Prompt Patterns
+
+Five patterns that consistently produce correct, maintainable actuarial code. Each pattern exists because a specific failure mode was encountered without it.
+
+---
+
+## Pattern 1 — Context Injection
+
+**When to use:** At the start of every non-trivial model build.
+
+**The anti-pattern:** Jumping straight to the implementation request without explaining what you're building and for whom. The AI produces generic, textbook code that is technically correct but actuarially meaningless.
+
+**The pattern:** Open the conversation with a paragraph that explains the business domain, the regulatory context, and what "correct" means in this specific case.
+
+```
+I am a Solvency II actuary at a European life insurance company.
+
+This function will be used in our internal model review process to stress
+test mortality assumptions. The standard formula SCR mortality shock is a
+permanent +15% increase in qₓ at all ages. We use the Makeham-Gompertz
+approximation calibrated to CMIB 2022 data.
+
+A correct implementation should produce a curtate life expectancy of
+approximately 27.4 years for a 45-year-old male with zero shock applied.
+This is our benchmark for validation.
+
+Now implement the following function:
+[function spec]
+```
+
+**Why it works:** The AI anchors its output to your specific context. The benchmark value (27.4 years) is particularly powerful — it gives the AI a concrete success criterion to satisfy.
+
+---
+
+## Pattern 2 — Contract First
+
+**When to use:** Before writing any implementation code.
+
+**The anti-pattern:** Asking the AI to "build a lapse rate model" and letting it decide on inputs, outputs, and structure. The AI will produce something that looks reasonable but may not match the form format, the results panel, or your actuarial conventions.
+
+**The pattern:** Write the manifest.json and function signature first. Hand them to the AI and say: implement this exact interface.
+
+```
+Here is the exact function signature and return structure.
+Implement it without modifying the interface:
+
+async def run(inputs: dict) -> dict:
+    # inputs["base_lapse_rate"] → float, base annual lapse rate in %
+    # inputs["stress_factor"]   → float, stress multiplier in % (150 = 1.5x)
+    # inputs["duration"]        → int, portfolio duration in years
+    #
+    # returns:
+    # {
+    #   "columns": ["Year", "Lapse Rate", "In-Force"],
+    #   "table": [{"year": int, "lapse_rate": "X.XX%", "in_force": "XX.X%"}],
+    #   "series": [{"x": int, "y": float}],  ← in-force % for the chart
+    #   "summary": {"base_lapse": str, "stressed_lapse": str, "terminal_if": str}
+    # }
+
+Methodology: apply the stress factor as a multiplier on the base lapse rate.
+BaFin lapse stress (Type 2): increase the base rate by 50% (stress_factor=150).
+Cap stressed lapse at 99%. Compute in-force as a running product.
+```
+
+**Why it works:** The AI cannot change the interface. You get exactly the shape of output the results panel expects, with the exact key names you specified.
+
+---
+
+## Pattern 3 — Explain Before Implement
+
+**When to use:** When you're not certain about the correct methodology and want to verify before the AI writes code.
+
+**The anti-pattern:** Asking for implementation and then discovering that the AI chose the wrong financial model. By that point, you've received code you have to throw away.
+
+**The pattern:** Ask the AI to explain its approach first. Review the methodology. Then give implementation permission.
+
+```
+Before writing any code, explain your approach to pricing a zero-coupon
+bond using the bootstrapped zero-coupon yield curve. Specifically:
+
+1. What discount formula will you use?
+2. How will you handle interpolation between observed maturities?
+3. What assumption will you make about the day count convention?
+
+I will review the methodology before you implement it.
+```
+
+**Why it works:** You catch methodology errors before they become code errors. It also forces the AI to commit to an approach, which makes the subsequent code more predictable and easier to review.
+
+<Callout type="info">
+  This pattern is especially important for actuarial calculations where multiple correct methodologies exist. For example, both the prospective and retrospective methods give the same policy reserve, but they are implemented differently. Specifying which one you want prevents the AI from making an arbitrary choice.
+</Callout>
+
+---
+
+## Pattern 4 — Isolated Iteration
+
+**When to use:** When fixing a specific bug or adding a specific feature to existing code.
+
+**The anti-pattern:** Asking the AI to "fix the lapse rate calculation" without constraints. The AI frequently refactors surrounding code, renames variables, restructures the return dict, or "improves" things you didn't ask it to change — introducing new bugs in the process.
+
+**The pattern:** Be surgical. Specify exactly which lines to change, and explicitly state what not to touch.
+
+```
+Modify only function.py. Do not change manifest.json or any other file.
+Do not rename any variables or change the return structure.
+
+The specific problem: when base_lapse_rate is above 30%, the stressed lapse
+rate can exceed 1.0 (100%). Fix this by adding:
+
+    stressed_lapse = min(stressed_lapse, 0.99)
+
+after the stress application on line 12. Make only this change.
+```
+
+**Why it works:** Surgical prompts produce surgical changes. The AI respects explicit "do not change" constraints almost perfectly.
+
+---
+
+## Pattern 5 — Post-Generation Review
+
+**When to use:** After receiving any non-trivial implementation.
+
+**The anti-pattern:** Running the code immediately without review. Actuarial models that pass the happy path test can still fail on realistic edge cases (age=100, shock=0, n_assets=1, zero volatility).
+
+**The pattern:** Ask the AI to review its own code before you run it.
+
+```
+Review the code you just wrote. Identify and fix:
+
+1. Edge cases not handled — what happens when age=100? When shock_rate=50?
+   When n_assets=1? When volatility=0?
+
+2. Numerical instability risks — are there divisions that could produce inf?
+   Exponentials that overflow? Logarithms of zero?
+
+3. Assumptions that break for boundary inputs — does the Sharpe ratio formula
+   still make sense when the portfolio finishes exactly at 100?
+
+Report what you found and the fix applied for each issue.
+```
+
+**Why it works:** The AI is genuinely good at finding its own edge case misses when asked to look for them. It is much less good at finding them spontaneously. The explicit categories (edge cases, numerical issues, boundary assumptions) focus the review and produce more thorough output.
+
+<Callout type="tip">
+  Combine Pattern 5 with Pattern 4: "Review the code you just wrote, then apply any fixes using Pattern 4 — change only what's broken, touch nothing else." This prevents the review process from triggering unnecessary refactoring.
+</Callout>
+
+---
+
+## Combining Patterns
+
+For a new app build, the typical sequence is:
+
+1. **Pattern 1** (context) → open the conversation
+2. **Pattern 2** (contract) → define manifest.json and function signature
+3. **Pattern 3** (explain first) → verify methodology if uncertain
+4. Generate the implementation
+5. **Pattern 5** (review) → ask for self-review
+6. Run the code → if bugs found, use **Pattern 4** (isolated iteration)
+
+This sequence typically produces production-quality code in 3–5 exchanges.

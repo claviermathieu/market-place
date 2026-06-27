@@ -1,0 +1,149 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Actuary to Builder">{children}</DocsLayout>
+}
+
+# Actuary to Builder
+
+You have already built this project. This page is about understanding the significance of what you've built and where to take it next.
+
+## What You Can Now Do Alone
+
+Before this project, building a deployed actuarial tool required:
+- A developer to write the backend API
+- A frontend developer to build the UI
+- An infrastructure engineer to host it
+- You, to specify what it should compute
+
+That is a team of four people, a sprint cycle, and a significant coordination overhead. The result was often a tool that computed approximately what you wanted, implemented in a way you couldn't inspect or modify.
+
+With this stack and AI assistance:
+- You write the computation (function.py) — in the language of the model, precisely
+- The platform handles everything else
+- The entire tool is yours: you can read every line, modify it, and understand why it works
+
+This is not a minor efficiency gain. It is a qualitative shift in what is achievable in your remit.
+
+## The Concept Mapping
+
+If you have spent years working in Excel, you already understand every concept in this stack. The names are different, but the ideas are the same:
+
+| Excel concept | Software equivalent |
+|---|---|
+| Workbook tab | `function.py` — one module per model |
+| Named range | Input field in `manifest.json` |
+| Cell formula (no VBA) | numpy / scipy computation |
+| Pressing F9 (manual recalc) | `POST /apps/{id}/run` |
+| Waiting for the spreadsheet | WebSocket loading state |
+| Emailing the result | Results panel (shared via URL in a future version) |
+| Shared workbook (SharePoint) | Marketplace — one URL, always the latest version |
+| Workbook password | JWT authentication (Tier 3 in the roadmap) |
+| "Save a copy" version control | Git history |
+| VBA macro | Python function — same idea, no GUI required |
+| Scenario manager | Slider inputs — drag and re-run instantly |
+| Solver | `scipy.optimize` — call it from function.py |
+
+The gap is narrower than it looks. You have been building models for years. You now have the infrastructure to run them as services.
+
+## The Skills You Already Have
+
+**Specification.** You can describe precisely what a calculation should produce. This is the hard part of software development, and you already do it daily.
+
+**Validation.** You know when an output is wrong. A developer writing a mortality model may not notice that life expectancy at age 90 should never exceed 10 years. You notice immediately.
+
+**Domain depth.** You know which regulatory standard applies, which assumptions are defensible, and what "wrong" looks like in the context of a client review. AI cannot replicate this.
+
+**Structured thinking.** Actuarial work is inherently modular: inputs → calculation → output. This maps directly to function contracts.
+
+What you are adding with this project: the ability to translate a specification into a deployed tool without intermediaries.
+
+## The 6-Month Roadmap
+
+### Month 1 — Master this project
+
+- Read the Architecture page and trace a full request from UI to database
+- Read both Build Logs and understand how each model was specified
+- Read the Prompt Patterns and practice all five with a small experiment
+- Build one Tier 1 app from the Roadmap page
+
+**Goal:** understand every file in this project and why it exists.
+
+### Month 2 — Build three Tier 1 apps
+
+The Lapse Rate Stress Tester, SCR Market Risk Calculator, and Yield Curve Bootstrapper are all achievable with what you already know. No new concepts — just new actuarial models.
+
+For each:
+1. Write the manifest.json first (30 minutes)
+2. Write the function signature (15 minutes)
+3. Use the 5 prompt patterns to implement
+4. Write the build log (1 hour — the most valuable part)
+
+**Goal:** three fully documented tools, three build logs.
+
+### Month 3 — External data sources
+
+The EIOPA Risk-Free Rate Fetcher introduces a new concept: making HTTP calls inside `function.py` to fetch live data. This is how you connect the marketplace to the real world — EIOPA curves, Bloomberg data, internal databases.
+
+```python
+import httpx
+
+async def run(inputs: dict) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get("https://www.eiopa.europa.eu/...")
+    # parse and return
+```
+
+`httpx.AsyncClient` is the async equivalent of `requests` — it fits naturally into our async function because it uses `await`.
+
+**Goal:** one live-data tool that fetches from an external source.
+
+### Month 4 — Sharing and collaboration
+
+Run sharing via permalink: `GET /runs/{id}` already exists. Adding a copy-URL button to the results panel means you can share a specific run with a colleague. They see the exact inputs and outputs — not a screenshot, the actual interactive result.
+
+PDF export: `window.print()` with a print stylesheet can produce a professional PDF from the results panel. No new backend code required.
+
+**Goal:** results that can be shared outside the marketplace.
+
+### Month 5 — Production deployment
+
+Moving from `localhost:3000` to a real URL requires:
+- A cloud host (Fly.io, Railway, or a VM) for the backend and database
+- Vercel or a static host for the frontend
+- Environment variables for the production API URL
+- A backup strategy for the PostgreSQL data
+
+None of these are complex with AI assistance. The architecture is already production-ready — it's just a matter of pointing it at a real domain.
+
+**Goal:** a publicly accessible URL you can send to a client or colleague.
+
+### Month 6 — Deloitte-ready tools
+
+By month 6, you have:
+- A working deployed marketplace
+- 5–7 documented actuarial tools
+- Experience with external data sources
+- Shareable results
+
+The next step is identifying specific review workflows at Deloitte where these tools compress time. Target workflows where:
+- You currently download data → paste into Excel → run calculation → format for email
+- The calculation is well-defined and repeatable
+- The result needs to be explainable and auditable
+
+Replace those with marketplace tools. The build log becomes the audit trail. The deployed URL becomes the deliverable.
+
+<Callout type="tip">
+  The most important thing you can do this month is finish one complete cycle: build a tool, write its build log, and share the result with a colleague who can use it. Completing one real cycle teaches more than reading all of this documentation.
+</Callout>
+
+---
+
+## A Note on What This Is Not
+
+This is not a coding career. You are not learning to be a software engineer. You are learning to direct AI to produce software that embeds your actuarial expertise.
+
+The distinction matters: an engineer optimises for code quality, maintainability, and architecture. Your optimisation target is **time from actuarial specification to deployed tool**. For that specific goal, AI-assisted development with the contract-first method is, right now, the fastest path that exists.
+
+Use it.

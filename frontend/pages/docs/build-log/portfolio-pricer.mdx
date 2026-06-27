@@ -1,0 +1,216 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+import CodeBlock from '../../../components/docs/CodeBlock'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Portfolio Pricer — Build Log">{children}</DocsLayout>
+}
+
+# Portfolio Pricer — Build Log
+
+**Status:** Live  
+**Difficulty:** Intermediate  
+**Total prompts:** 4  
+**Iterations to working code:** 3
+
+---
+
+## Business Context
+
+Insurance companies under IFRS 17 and Solvency II must estimate the future value of their asset portfolios to compute the Contractual Service Margin, discount rates, and economic capital. When market prices are not observable — illiquid credit tranches, private equity, unlisted infrastructure — mark-to-model approaches using stochastic simulation are required.
+
+Geometric Brownian Motion (GBM) is the textbook model for equity-like assets: prices are assumed to follow a log-normal distribution with a constant drift (expected return) and volatility. While too simple for production use, it provides the correct *shape* of uncertainty: right-skewed paths, bounded below at zero, with variance that grows over time.
+
+**Why this matters at Deloitte:** When reviewing a client's Economic Scenario Generator for internal model approval, you need to quickly replicate their outputs to check whether their volatility calibration is consistent with historical data. This tool lets you run that cross-check in under a minute.
+
+---
+
+## Contract-First Approach
+
+### manifest.json (defined first)
+
+```json
+{
+  "name": "Portfolio Pricer",
+  "description": "Price a diversified asset portfolio across volatility regimes.",
+  "inputs": {
+    "n_assets": {
+      "type": "number",
+      "label": "Number of assets",
+      "min": 1,
+      "max": 200,
+      "step": 1,
+      "default": 50,
+      "unit": ""
+    },
+    "volatility": {
+      "type": "number",
+      "label": "Volatility",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "default": 20,
+      "unit": "%"
+    }
+  }
+}
+```
+
+**Why only two inputs?** We wanted to explore one actuarially interesting dimension: how the number of assets (diversification) interacts with volatility to determine portfolio variance. Adding a `correlation` input would require a matrix — not supported by the current number slider UI. We accepted this constraint and documented it as a known limitation.
+
+The decision to fix `mu = 0.07` (7% expected annual return) as a hardcoded constant was deliberate: it's a long-run equity return assumption consistent with most EIOPA stress scenarios and keeps the UI simple.
+
+### Function signature
+
+```python
+async def run(inputs: dict) -> dict:
+    # inputs["n_assets"]  → int, number of simulated assets
+    # inputs["volatility"] → float, annualised volatility in %
+    # returns: { columns, table, series, summary }
+```
+
+---
+
+## Prompt Sequence
+
+### Prompt 1 — Initial
+
+> I am building an asset portfolio simulator for an insurance company's IFRS 17 model. Implement `async def run(inputs: dict) -> dict` that simulates a portfolio of `n_assets` assets using Geometric Brownian Motion over 25 monthly periods. Parameters: drift mu=0.07, volatility from inputs as a decimal, dt=1/12. Start all assets at 100. Return the equally-weighted portfolio index as a time series. Use numpy.
+
+**What the AI returned:** A working function using a Python loop over `n_assets`, building each asset path independently.
+
+### Iteration 1 — Vectorize across assets
+
+The loop worked but scaled poorly with large `n_assets`. With 200 assets, you're running 200 × 25 = 5000 individual calculations in Python instead of one matrix operation.
+
+> Replace the Python loop over assets with a fully vectorized numpy approach. Generate all asset paths simultaneously using `rng.standard_normal((n_assets, periods))` where `rng = np.random.default_rng()`. Each row is one asset, each column is one time period. Apply GBM log-returns vectorially and compute the mean across assets (axis=0) for the portfolio. Do not change the drift, volatility, or period parameters.
+
+**Result:** Clean vectorization. The implementation went from O(n) Python iterations to a single matrix exponentiation.
+
+### Iteration 2 — Add Sharpe ratio and structured output
+
+> Add a Sharpe ratio to the summary. Use the approximation: terminal_return / (vol × sqrt(dt × periods)). Also add a table showing the portfolio value every 4 months (every 4th index in the series). Format as `{period: "M0", index_value: "$100.00", return: "+0.0%"}`. Return the complete structured dict with columns, table, series, and summary.
+
+**Result:** Correct implementation. The Sharpe ratio formula is an approximation (it ignores the risk-free rate subtraction) but is standard for a quick sanity check.
+
+### Iteration 3 — Fix the random seed behavior
+
+The first version used `np.random.standard_normal()` (the legacy random interface), which means results change on every call. For an audit tool, reproducibility is important.
+
+> Replace `np.random.standard_normal()` with `np.random.default_rng().standard_normal()`. This uses the modern Generator API. Do not add a fixed seed — we want different results each run, but want to be explicit about using the modern interface.
+
+**Result:** Clean replacement. `np.random.default_rng()` is the correct modern approach in numpy; the legacy `np.random` module is deprecated for production code.
+
+---
+
+## What Worked
+
+**Vectorized GBM** — once the matrix formulation was specified, the AI generated it correctly and idiomatically:
+
+```python
+W = rng.standard_normal((n_assets, periods))
+drift = (mu - 0.5 * vol**2) * dt
+diffusion = vol * np.sqrt(dt) * W
+log_returns = drift + diffusion
+paths = 100 * np.exp(np.cumsum(log_returns, axis=1))
+```
+
+The `axis=1` specification for cumsum (sum across time periods, not across assets) was handled correctly without being explicitly specified. The AI understood the matrix shape.
+
+**The diversification intuition is visible.** With 1 asset, the portfolio index is a single volatile path. With 200 assets, it converges to the deterministic drift path. This is the central limit theorem made visual — and the AI produced this behavior naturally from the mean across assets.
+
+---
+
+## What Didn't
+
+**No correlation structure.** All assets are treated as independent. A real portfolio has correlated assets — equities move together, bonds move inversely with rates. The correct approach requires a Cholesky decomposition of the correlation matrix: `W_corr = L @ rng.standard_normal((n_assets, periods))` where `L = np.linalg.cholesky(corr_matrix)`. This was out of scope for the slider-based UI but is the natural next step.
+
+**Hardcoded drift.** The 7% annual return assumption is appropriate for developed market equities but wrong for bonds (3-4%), private equity (12-15%), or infrastructure (7-9% unlevered). A production version would take `mu` as an input or accept asset class weights.
+
+**Negative paths impossible.** GBM can never produce a negative price, which means it cannot model credit events or insurance liability cashflows that can be negative. For Solvency II internal model work, a jump-diffusion model or a stochastic interest rate model would be more appropriate.
+
+<Callout type="warning">
+  This model treats all assets as independent and identically distributed. Do not use it to estimate portfolio VaR or CVaR — the lack of correlation structure will significantly underestimate tail risk in a real portfolio. For that calculation, use a copula or factor model.
+</Callout>
+
+---
+
+## Annotated Code
+
+```python
+import asyncio
+import numpy as np
+
+
+async def run(inputs: dict) -> dict:
+    # Simulate computation time: GBM over 200 assets is trivial, but
+    # a real ESG might take minutes — the delay makes this feel realistic
+    await asyncio.sleep(5 + np.random.uniform(0, 3))
+
+    n_assets = max(1, int(inputs.get("n_assets", 50)))
+    # Convert percentage input to decimal
+    vol = float(inputs.get("volatility", 20)) / 100.0
+
+    # Monthly time step: dt = 1/12 year
+    dt = 1 / 12
+    mu = 0.07     # Expected annual return — hardcoded at 7% (long-run equity assumption)
+    periods = 25  # 25 months ≈ 2 years, enough to show volatility regime effects
+
+    # Modern numpy random API: use Generator, not the legacy np.random module
+    rng = np.random.default_rng()
+
+    # Generate all random shocks at once: shape (n_assets, periods)
+    # Each row = one asset path, each column = one time step
+    W = rng.standard_normal((n_assets, periods))
+
+    # GBM log-return: Δlog(S) = (μ - σ²/2)dt + σ√dt × Z
+    # The Itô correction term (-0.5 × vol²) ensures E[S_t] = S_0 × e^(μt)
+    drift = (mu - 0.5 * vol**2) * dt
+    diffusion = vol * np.sqrt(dt) * W
+
+    # Cumulative log-returns → price paths, starting at index 100
+    log_returns = drift + diffusion
+    paths = 100 * np.exp(np.cumsum(log_returns, axis=1))  # shape: (n_assets, periods)
+
+    # Equally-weighted portfolio: mean across assets at each time step
+    # With many assets, this converges to the deterministic drift path (CLT)
+    portfolio = paths.mean(axis=0)  # shape: (periods,)
+
+    # Chart data: portfolio index over time
+    series = [{"x": int(t), "y": round(float(v), 2)} for t, v in enumerate(portfolio)]
+
+    # Table: sample every 4 months to avoid a 25-row table
+    table_rows = [
+        {
+            "period": f"M{t}",
+            "index_value": f"${float(v):.2f}",
+            "return": f"{(float(v)/100 - 1)*100:.1f}%",
+        }
+        for t, v in enumerate(portfolio)
+        if t % 4 == 0
+    ]
+
+    # Summary KPIs
+    summary = {
+        "n_assets": n_assets,
+        "volatility": f"{vol*100:.0f}%",
+        "final_value": f"${portfolio[-1]:.2f}",
+        "total_return": f"{(portfolio[-1]/100 - 1)*100:.1f}%",
+        # Simplified Sharpe: excess return / portfolio volatility
+        # Ignores risk-free rate — adequate for a quick sanity check
+        "sharpe_ratio": round(
+            float((portfolio[-1] / 100 - 1) / (vol * np.sqrt(dt * periods))), 2
+        ),
+    }
+
+    return {
+        "columns": ["Period", "Index value", "Return"],
+        "table": table_rows,
+        "series": series,
+        "summary": summary,
+    }
+```
+
+<Callout type="tip">
+  Try setting `n_assets = 1` and `n_assets = 200` at the same volatility. The convergence toward the drift path as assets increase is the Law of Large Numbers in action — and is why diversification reduces (but never eliminates) portfolio volatility.
+</Callout>

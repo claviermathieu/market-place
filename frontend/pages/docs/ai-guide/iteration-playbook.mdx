@@ -1,0 +1,146 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Iteration Playbook">{children}</DocsLayout>
+}
+
+# Iteration Playbook
+
+Receiving code from the AI is not the end of the process — it's the middle. This page explains how to evaluate what you received, classify any problems, and direct the AI to fix them without breaking what already works.
+
+## How to Read AI-Generated Code (Without Being a Developer)
+
+You do not need to understand every line. You need to understand **the structure** and **the key calculations**.
+
+Start with this checklist when reading any `function.py`:
+
+**Inputs:** Do the variable names after `inputs.get(...)` match the keys in your manifest.json exactly? A mismatch here causes silent failures — the input arrives as None and the default is used.
+
+**Conversion:** Are percentage values divided by 100 immediately after reading? Slider values are integers (8 for 8%) and need to become decimals (0.08) before use in formulas.
+
+**Core formula:** Can you find the actuarial calculation you asked for? In a mortality model, look for the qₓ calculation. In a lapse model, look for the in-force projection. If you can't find it, the AI may have implemented a different model.
+
+**Return structure:** Do the keys in the returned dict match what you specified in your contract? Look for `table`, `series`, and `summary`. Check that `series` is a list of `{x, y}` dicts (not a list of lists, which the chart component won't accept).
+
+**Edge case that will definitely be hit:** What happens when the user sets all sliders to their minimum values? Their maximum values? Zero inputs that end up in denominators?
+
+## The Three Types of AI Errors
+
+### Type 1 — Logic Errors
+
+The formula is wrong. The AI computed something that is syntactically valid Python but mathematically incorrect for your use case.
+
+**How to detect:** The output looks numerically wrong. Life expectancy of 3.5 years for a 40-year-old. A Sharpe ratio of 47. Portfolio in-force at 0% after year 2.
+
+**How to fix:** Be specific about what is wrong and why. Do not say "fix the life expectancy calculation." Say:
+
+```
+The life expectancy is wrong. It currently computes np.mean(survival),
+which is the average survival probability — not life expectancy.
+Curtate life expectancy is np.sum(survival): the total expected years lived.
+Replace only that line. Do not change anything else.
+```
+
+The key technique: **name the correct formula** and **cite where to apply it**. The AI fixes logic errors well when you specify both what is wrong and what is right.
+
+### Type 2 — Edge Case Misses
+
+The code works for the happy path but fails or produces nonsense for boundary inputs. These are the most common AI errors.
+
+**How to detect:** Test manually with boundary values:
+- Zero inputs (what if shock_rate = 0?)
+- Maximum inputs (what if age = 100? n_assets = 1?)
+- Combinations that approach mathematical limits (lapse_rate = 99%, duration = 40)
+
+**How to fix:** Report the specific boundary and the specific failure:
+
+```
+When age = 100, the function fails with IndexError because np.arange(100, 101)
+produces a single-element array and the subsequent mask fails.
+
+Fix only the age=100 edge case. Ensure the function returns a valid (single-row)
+result when the starting age equals 100.
+```
+
+### Type 3 — Performance Issues
+
+The code works but is slow because of avoidable Python loops that should be numpy operations.
+
+**How to detect:** The computation takes noticeably longer than the `asyncio.sleep` delay. Watch the loading state — if "RUNNING" persists for much longer than the sleep duration, a Python loop is burning CPU.
+
+**How to fix:**
+
+```
+The survival calculation uses a Python for-loop over 80 ages. Replace it with
+numpy vectorization. The survival function is:
+
+    survival = np.cumprod(1 - qx)
+
+where qx is already a numpy array. Apply this change only to the survival
+calculation. Do not change qx, the table, or the return structure.
+```
+
+<Callout type="info">
+  For the apps in this marketplace, performance is not critical — models run in background tasks and the user is watching a loading indicator. Performance becomes important when the same function is called hundreds of times (batch runs, scenario analysis). Keep this in mind when deciding whether to fix a Type 3 error immediately.
+</Callout>
+
+## How to Describe a Bug Correctly
+
+When you find something wrong, the quality of your bug description determines the quality of the fix.
+
+**Bad bug report:** "The lapse rate is wrong."
+
+**Good bug report:**
+```
+Problem: The stressed lapse rate exceeds 1.0 when base_lapse_rate = 30
+and stress_factor = 200.
+
+Current behaviour: stressed_lapse = 0.30 × 2.0 = 0.60, which is correct.
+But when base_lapse_rate = 60 and stress_factor = 200, we get 1.20.
+
+Expected behaviour: stressed_lapse should be capped at 0.99.
+
+Fix: add `stressed_lapse = min(stressed_lapse, 0.99)` after the stress
+multiplication. Change only this line.
+```
+
+The formula: **current value** → **expected value** → **exact fix** → **scope of change**.
+
+## When to Rewrite vs When to Patch
+
+**Patch** when:
+- The error is in one specific calculation
+- The rest of the function is correct and tested
+- The fix can be described in one sentence
+
+**Rewrite** when:
+- The core model is wrong (e.g., the AI used a different mortality law than you asked for)
+- The return structure is wrong in a way that affects multiple downstream components
+- The performance problem is pervasive (every loop needs to become a numpy operation)
+
+When requesting a rewrite, still use the same contract (manifest.json + function signature). Say:
+
+```
+The implementation is structurally wrong because [reason]. I need a complete
+rewrite of function.py. Keep the same function signature and return structure.
+The correct approach is: [methodology]. Here is the contract: [paste it].
+```
+
+This gives you a fresh implementation without losing the work you did defining the contract.
+
+## When Is the Code Good Enough?
+
+Ship when you can answer yes to all four:
+
+1. **Does it produce correct output for your primary use case?** Test with values you know the answer to. For a mortality model: does qₓ at age 65 match your mortality table?
+
+2. **Does it handle the realistic range of inputs?** Not all edge cases — the realistic ones. For `duration`, you care about 1 year and 40 years. You probably don't care about the numerical behaviour at duration=0.5.
+
+3. **Does it fail gracefully?** If an unexpected input arrives, does the function raise a clear exception (which the backend catches and marks as FAILED) or does it silently return garbage? Garbage is worse than an error.
+
+4. **Does the result match your intuition?** Run the tool. Look at the chart. Does it go in the right direction? Does the magnitude feel right? If you're a life actuary and the survival curve at age 80 shows 60% still alive, something is wrong.
+
+<Callout type="tip">
+  The goal is not perfect code. The goal is code that is correct enough to be useful and transparent enough to be auditable. For a tool used in client reviews, the annotated code in the build log is as important as the code itself — it shows the methodology and allows a peer reviewer to verify the computation without running the tool.
+</Callout>

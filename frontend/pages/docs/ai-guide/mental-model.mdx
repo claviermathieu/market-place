@@ -1,0 +1,73 @@
+import DocsLayout from '../../../components/docs/DocsLayout'
+import Callout from '../../../components/docs/Callout'
+
+export default function Layout({ children }) {
+  return <DocsLayout title="Mental Model">{children}</DocsLayout>
+}
+
+# Mental Model
+
+Before you write your first prompt, you need an accurate mental model of what you are working with. The wrong mental model produces bad prompts, bad code, and frustration.
+
+## The Analogy That Works
+
+Think of AI as a **brilliant graduate developer who has just joined your team from a top computer science programme**. This person:
+
+- Can write Python, SQL, and JavaScript fluently — probably better than most developers you've met
+- Knows every major library (numpy, scipy, pandas, FastAPI) inside out
+- Has studied financial mathematics in university
+- **Has never seen a real actuarial table, never reviewed a Solvency II SCR calculation, and has no idea what a qₓ value represents in practice**
+
+When you work with this developer, you do not say: *"Build me a mortality stress tool."*
+
+You say: *"I need a function that takes an age and a mortality shock percentage as inputs. The base mortality rate follows the Makeham-Gompertz approximation: qₓ = min(0.99, 0.00009 × exp(0.091x)). The shock is multiplicative: stressed qₓ = base qₓ × (1 + shock). Compute the survival function from the starting age to 100 using the recursive relationship ₜpₓ = ₜ₋₁pₓ × (1 - qₓ₊ₜ₋₁). Return the curtate life expectancy — which is the sum of the survival function, not the average."*
+
+The difference between these two instructions is the difference between getting something and getting the right thing.
+
+## What the AI Brings
+
+**Speed.** The AI writes correct boilerplate in seconds. Setting up a FastAPI route, a numpy vectorization, a JSON serialization — these are things the AI does without thinking. What would take you three hours to learn from documentation, the AI produces in thirty seconds.
+
+**Breadth.** The AI has seen every pattern. When you describe what you want to compute, it knows whether to use `np.cumsum`, `np.cumprod`, `scipy.interpolate.CubicSpline`, or a simple list comprehension. You don't need to know which one — you need to know what you want to compute.
+
+**No ego.** The AI does not get defensive when you say "this is wrong, here's why." It corrects without argument. This makes iteration faster than working with a human developer who might push back or anchor to their first implementation.
+
+## What You Bring
+
+**Domain correctness.** The AI will produce code that is syntactically correct and structurally reasonable. It will not tell you that using a 7% drift assumption for a bond portfolio is wrong, that a Gompertz model without a Makeham constant understates infant mortality, or that `survival_at_65` is undefined when the starting age is 70. **That is your job.**
+
+**Business context.** The AI does not know that your client's model uses the EIOPA risk-free rate curve rather than market rates, that their portfolio has a modified duration of 8.3 years, or that the regulator specifically flagged their lapse assumptions in the last review. You inject this context. Without it, the AI builds a generic tool that may not serve your actual need.
+
+**Interface design.** Before writing any code, you decide: what does the user control? What gets computed? What gets displayed? The AI takes orders well but does not make product decisions well. A prompt that says "build a mortality tool" will produce an interface you didn't design and may not be able to explain. Define the interface first.
+
+## The Collaboration Loop
+
+Effective AI collaboration is a four-step loop:
+
+**1. Context** — inject your business domain into the conversation before asking for code. Who the user is, what standard or regulation applies, what the known constraints are.
+
+**2. Contract** — define the function signature and return structure before implementation. Fix the interface. The AI can then focus 100% on the implementation.
+
+**3. Generate** — give the implementation prompt. Include the specific methodology, the numeric parameters, and the output format. Be precise.
+
+**4. Review** — read the code. Not as a developer — as an actuary. Ask: does the formula match the methodology? Are the edge cases handled? Does the output make sense for the values I know are correct?
+
+Then loop back. A typical tool takes 2–4 iterations to reach production quality.
+
+<Callout type="info">
+  The loop is not a waterfall. You will sometimes discover that your contract was wrong after seeing the first implementation. Go back and fix the contract before iterating on the code. Fixing the interface early is cheaper than refactoring late.
+</Callout>
+
+## Why Domain Expertise Is Now Worth More
+
+Here is the counterintuitive consequence of AI assistance: **actuarial knowledge becomes more valuable, not less.**
+
+Before AI, the bottleneck in building a mortality tool was programming ability. If you couldn't write Python, you depended on a developer who didn't understand actuarial standards. Knowledge transfer was slow, bugs were hard to diagnose, and the resulting tool often captured the developer's approximation of your intent rather than your exact specification.
+
+With AI, that bottleneck disappears. The new bottleneck is **specification**. Someone who deeply understands Solvency II can write a prompt that produces a correct SCR calculator in twenty minutes. Someone who doesn't know what SCR stands for cannot write that prompt, regardless of how good the AI is.
+
+The actuary who combines deep domain knowledge with the ability to specify precisely has a 10× productivity advantage. That is this project.
+
+<Callout type="tip">
+  If you're not sure whether a piece of code is correct, describe the expected output for a known input and ask the AI to verify: "Given age=65 and shock_rate=0, the survival probability at age 90 should be approximately 23% based on the CMI 2022 tables. Does your implementation produce this?" The AI will either confirm or identify the discrepancy.
+</Callout>
