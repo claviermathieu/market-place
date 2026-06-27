@@ -9,13 +9,13 @@ A full-stack actuarial model marketplace built with Next.js, FastAPI, PostgreSQL
 ### Problématique historique : Le cloisonnement Métier / IT
 
 
-La première révolution numérique a automatisé les systèmes complexes au prix d'une hyper-spécialisation. Les organisations ont massivement recruté des développeurs déconnectés des enjeux métiers, tandis que l'actuaire se retrouvait relégué en bout de chaîne. Face à la rigidité et à la complexité des infrastructures IT, l'actuaire est resté cantonné à Excel — un outil certes flexible, mais structurellement limité pour la mise en production.
+La première révolution numérique a automatisé les systèmes complexes au prix d'une hyper-spécialisation. Les organisations ont massivement recruté des développeurs déconnectés des enjeux métiers, tandis que l'actuaire se retrouvait relégué en bout de chaîne. Face à la rigidité et à la complexité des infrastructures IT, l'actuaire est resté cantonné à Excel. Certes, l'outil est flexible ; mais il est structurellement limité pour la mise en production et les calculs plus avancés (comme des modèles ALM).
 
 Le paradigme traditionnel reposait sur un dialogue entre un expert métier dictant des besoins fonctionnels à un développeur possédant la maîtrise technique, mais sans vision macro de l'activité.
 
 ### Le nouveau paradigme : L'IA comme pont technologique
 
-L'émergence de l'IA générative redéfinit fondamentalement cette dynamique. L'interlocuteur de l'actuaire n'est plus le développeur informatique, mais directement l'infrastructure IT. En supprimant cet intermédiaire, l'IA permet à l'actuaire de s'approprier l'ensemble de la tech stack.
+L'émergence de l'IA générative redéfinit fondamentalement cette dynamique. L'interlocuteur de l'actuaire n'est plus le développeur informatique, mais directement l'infrastructure IT. En supprimant cet intermédiaire, l'IA permet à l'actuaire de s'approprier l'ensemble de la tech stack (stack = ensemble des composantes tech à maitriser pour déployer un outil).
 
 Ce projet vise à démontrer qu'un actuaire peut désormais concevoir, tester et déployer ses propres modèles actuariels et automatisations de processus en totale autonomie, de l'algorithme à l'interface utilisateur, sans dépendance technique externe.
 
@@ -76,10 +76,59 @@ Bien évidemment, lorsque l'on parle de suppression des intermédiaires, nous pe
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## Database Environments
+
+The application supports two database backends. Switching requires only a different
+environment file and compose command — no code changes.
+
+### Local PostgreSQL (default for development)
+
+Starts a PostgreSQL 16 container alongside the application. Data persists in a
+Docker volume (`pg_data`). Use this when you have no internet access or want a
+fully self-contained stack.
+
+```bash
+cp .env.local.example .env.local
+
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.local.yml \
+  --env-file .env.local \
+  up
+```
+
+### Supabase (shared / production-like)
+
+Uses a hosted Supabase PostgreSQL instance. No database container is started.
+Fill in your project credentials before running.
+
+```bash
+cp .env.supabase.example .env.supabase
+# Edit .env.supabase: replace <PASSWORD> and <PROJECT> with real values
+
+docker compose \
+  --env-file .env.supabase \
+  up
+```
+
+| | Local | Supabase |
+|---|---|---|
+| PostgreSQL container | ✓ started by Docker | ✗ not started |
+| Data persistence | Docker volume (`pg_data`) | Supabase cloud |
+| Connection | `@db:5432` (internal DNS) | `@db.<project>.supabase.co:5432` |
+| SSL required | No | Yes (handled by `database.py`) |
+
+> **Production (Azure Container Apps):** set `DATABASE_URL` as a container environment
+> variable directly. Docker Compose is a development-only concern.
+
 ## Quick Start
 
 ```bash
-docker-compose up
+# Supabase (if you already have .env configured)
+docker compose up
+
+# Local PostgreSQL
+docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up
 ```
 
 - Frontend: http://localhost:3000
