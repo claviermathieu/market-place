@@ -83,7 +83,7 @@ ${F}
 ## Validation
 
 The feature works when:
-1. \`curl -s http://localhost:8000/[path]\` returns [expected JSON shape]
+1. \`curl -s ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/[path]\` returns [expected JSON shape]
 2. Navigating to \`http://localhost:3000/[path]\` renders [expected UI state]
 3. [any other specific check]
 

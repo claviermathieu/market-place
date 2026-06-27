@@ -55,8 +55,8 @@ const SECTIONS = [
 ]
 
 const QUICK_REF = [
-  ['API base URL', 'http://localhost:8000'],
-  ['WebSocket base URL', 'ws://localhost:8000'],
+  ['API base URL', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'],
+  ['WebSocket base URL', process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'],
   ['Frontend URL', 'http://localhost:3000'],
   ['Database', 'PostgreSQL via asyncpg'],
 ]
