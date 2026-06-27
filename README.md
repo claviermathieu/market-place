@@ -2,16 +2,45 @@
 
 A full-stack actuarial model marketplace built with Next.js, FastAPI, PostgreSQL, and Python functions that simulate Databricks workflows.
 
-## Introduction
+## La révolution de l'IA et la nécessité de devnir un actuaire Full-Stack
 
-Ce projet a vocation a illustrer qu'un actuaire peut dorénavant se former et implémenter une stack complète IT à l'aide de l'IA.
+`Vers l’autonomie technologique et la fin des intermédiaires`
 
-
-
-
-Les développements récents de l'IA permettent d'autonomiser davantage les métiers en supprimant les intermédiaires. L'objectif de ce projet est de permettre à un actuaire de créer, tester et déployer ses modèles actuariels ou ses automatisations de processus en toute autonomie, sans avoir besoin d'un développeur pour créer l'interface utilisateur ou gérer l'infrastructure.
+### Problématique historique : Le cloisonnement Métier / IT
 
 
+La première révolution numérique a automatisé les systèmes complexes au prix d'une hyper-spécialisation. Les organisations ont massivement recruté des développeurs déconnectés des enjeux métiers, tandis que l'actuaire se retrouvait relégué en bout de chaîne. Face à la rigidité et à la complexité des infrastructures IT, l'actuaire est resté cantonné à Excel — un outil certes flexible, mais structurellement limité pour la mise en production.
+
+Le paradigme traditionnel reposait sur un dialogue entre un expert métier dictant des besoins fonctionnels à un développeur possédant la maîtrise technique, mais sans vision macro de l'activité.
+
+### Le nouveau paradigme : L'IA comme pont technologique
+
+L'émergence de l'IA générative redéfinit fondamentalement cette dynamique. L'interlocuteur de l'actuaire n'est plus le développeur informatique, mais directement l'infrastructure IT. En supprimant cet intermédiaire, l'IA permet à l'actuaire de s'approprier l'ensemble de la tech stack.
+
+Ce projet vise à démontrer qu'un actuaire peut désormais concevoir, tester et déployer ses propres modèles actuariels et automatisations de processus en totale autonomie, de l'algorithme à l'interface utilisateur, sans dépendance technique externe.
+
+### Objectifs Stratégiques
+
+Pour l'actuaire en quête de montée en compétences, ce projet s'articule autour de trois piliers d'efficience :
+
+* Produire plus : Élargir le périmètre d'action en gérant des projets de bout en bout (full-stack).
+
+* Produire vite : Réduire drastiquement le time-to-market en éliminant les cycles de spécification et de recette inter-équipes.
+
+* Produire mieux : Garantir la fidélité des modèles en supprimant les biais de traduction entre le besoin actuariel et le code final.
+
+### Vision Prospective : La polarisation du marché du travail
+
+L'intuition macroéconomique sous-jacente à ce projet repose sur une thèse de polarisation accrue du marché du travail. L'avènement de l'IA va accentuer la scission entre deux profils de main-d'œuvre :
+
+* Les profils à haute valeur ajoutée : Des professionnels augmentés, hautement productifs, capables de maîtriser l'architecture complète de leurs projets.
+
+* Les profils à utilité marginale : Une force de travail cantonnée à des tâches exécutives, subissant de plein fouet l'obsolescence de leurs compétences.
+
+
+### Application pour le monde du conseil
+
+Bien évidemment, lorsque l'on parle de suppression des intermédiaires, nous pensons à la réduction du besoin de conseil. Mettons ce sujet de premier temps de côté car ils concernent des considérations stratégiques qui n'est pas l'objet de ce projet ni de mon rôle au sein du cabinet. Cependant, une touche d'optimisme serait de dire que les cabinets de conseil ne vendent pas des livrables mais la disposition de profils 
 
 
 
