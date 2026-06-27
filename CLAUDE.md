@@ -97,6 +97,13 @@ docker compose logs -f backend
 docker compose logs -f frontend
 ```
 
+## Environments
+
+- **Local dev:** branch `dev`, `docker compose up`, credentials in `.env.local`
+- **Production:** branch `main`, Railway auto-deploy, env vars set in Railway dashboard
+- Never commit `.env.local` or any file containing real credentials
+- After merging to main, Railway auto-deploys via GitHub integration
+
 ## Further reading
 
 - `.claude/context/stack.md` — complete tech stack with version numbers

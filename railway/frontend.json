@@ -1,0 +1,11 @@
+{
+  "build": {
+    "dockerfilePath": "frontend/Dockerfile",
+    "watchPatterns": ["frontend/**"]
+  },
+  "deploy": {
+    "startCommand": "node_modules/.bin/next start -p 3000",
+    "healthcheckPath": "/",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}

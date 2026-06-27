@@ -76,63 +76,62 @@ Bien évidemment, lorsque l'on parle de suppression des intermédiaires, nous pe
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Database Environments
+## Environnements
 
-The application supports two database backends. Switching requires only a different
-environment file and compose command — no code changes.
+Deux backends disponibles. Seul le fichier d'environnement et la commande `docker compose` changent — aucune modification de code.
 
-### Local PostgreSQL (default for development)
+### Mode local — PostgreSQL Docker (3 containers)
 
-Starts a PostgreSQL 16 container alongside the application. Data persists in a
-Docker volume (`pg_data`). Use this when you have no internet access or want a
-fully self-contained stack.
+Démarre un container PostgreSQL 16 en local. Données persistées dans un volume Docker (`pg_data`). Recommandé pour le développement sans connexion internet.
 
+**Première utilisation :**
 ```bash
-cp .env.local.example .env.local
-
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.local.yml \
-  --env-file .env.local \
-  up
+cp .env.example .env.local
+# Édite .env.local : mets DATABASE_URL=postgresql+asyncpg://marketplace:marketplace@db:5432/marketplace
 ```
 
-### Supabase (shared / production-like)
-
-Uses a hosted Supabase PostgreSQL instance. No database container is started.
-Fill in your project credentials before running.
-
+**Lancement :**
 ```bash
-cp .env.supabase.example .env.supabase
-# Edit .env.supabase: replace <PASSWORD> and <PROJECT> with real values
-
-docker compose \
-  --env-file .env.supabase \
-  up
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 ```
 
-| | Local | Supabase |
+### Mode production — Supabase (2 containers)
+
+Utilise l'instance Supabase hébergée. Aucun container base de données n'est démarré.
+
+**Première utilisation :**
+```bash
+cp .env.example .env.production
+# Édite .env.production : renseigne ENV_FILE, DATABASE_URL (pooler Supabase)
+```
+
+**Lancement :**
+```bash
+docker compose --env-file .env.production up
+```
+
+| | Local | Production (Supabase) |
 |---|---|---|
-| PostgreSQL container | ✓ started by Docker | ✗ not started |
-| Data persistence | Docker volume (`pg_data`) | Supabase cloud |
-| Connection | `@db:5432` (internal DNS) | `@db.<project>.supabase.co:5432` |
-| SSL required | No | Yes (handled by `database.py`) |
+| Containers | db + backend + frontend | backend + frontend |
+| Données | Volume Docker `pg_data` | Supabase cloud |
+| Connexion | `@db:5432` (réseau Docker) | pooler `aws-0-eu-west-3.pooler.supabase.com` |
+| SSL | Non | Oui (automatique via `database.py`) |
 
-> **Production (Azure Container Apps):** set `DATABASE_URL` as a container environment
-> variable directly. Docker Compose is a development-only concern.
+> **Railway :** les variables `DATABASE_URL`, `NEXT_PUBLIC_API_URL` et `NEXT_PUBLIC_WS_URL`
+> sont injectées directement depuis le dashboard Railway — pas de fichier `.env` nécessaire.
 
 ## Quick Start
 
 ```bash
-# Supabase (if you already have .env configured)
-docker compose up
+# Local (PostgreSQL Docker)
+docker compose -f docker-compose.yml -f docker-compose.local.yml up
 
-# Local PostgreSQL
-docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local up
+# Production (Supabase)
+docker compose --env-file .env.production up
 ```
 
-- Frontend: http://localhost:3000
-- API docs: http://localhost:8000/docs
+- Frontend : http://localhost:3000
+- API docs : http://localhost:8000/docs
 
 ## API Examples
 
