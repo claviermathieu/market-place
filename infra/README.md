@@ -21,6 +21,7 @@ Set these in the Railway dashboard under each service → Variables.
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | Supabase Session Pooler connection string: `postgresql+asyncpg://postgres.<PROJECT>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:5432/postgres` |
+| `FRONTEND_URL` | Public URL of the deployed frontend service, e.g. `https://marketplace.mclavier.com` — added to CORS allowed origins |
 
 #### Frontend
 
