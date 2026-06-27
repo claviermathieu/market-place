@@ -76,62 +76,85 @@ Bien évidemment, lorsque l'on parle de suppression des intermédiaires, nous pe
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Environnements
+## Déploiement
 
-Deux backends disponibles. Seul le fichier d'environnement et la commande `docker compose` changent — aucune modification de code.
+Trois modes d'exécution disponibles selon le contexte.
 
-### Mode local — PostgreSQL Docker (3 containers)
+### 1. Production — Railway
 
-Démarre un container PostgreSQL 16 en local. Données persistées dans un volume Docker (`pg_data`). Recommandé pour le développement sans connexion internet.
+Le déploiement est automatique : toute merge sur `main` déclenche un redéploiement Railway via GitHub Actions. Les variables d'environnement sont configurées dans le dashboard Railway — aucun fichier `.env` à gérer.
 
-**Première utilisation :**
+- Frontend : https://marketplace.mclavier.com
+- API : https://backend-production-30991.up.railway.app/docs
+
+### 2. Développement Docker
+
+Recommandé pour un environnement proche de la production. Deux variantes selon la base de données.
+
+**Base de données locale (PostgreSQL dans Docker — 3 containers)**
+
 ```bash
 cp .env.example .env.local
-# Édite .env.local : mets DATABASE_URL=postgresql+asyncpg://marketplace:marketplace@db:5432/marketplace
+# Éditer DATABASE_URL=postgresql+asyncpg://marketplace:marketplace@db:5432/marketplace
+
+docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
 ```
 
-**Lancement :**
-```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up
-```
+**Avec Supabase (2 containers — pas de container `db`)**
 
-### Mode production — Supabase (2 containers)
-
-Utilise l'instance Supabase hébergée. Aucun container base de données n'est démarré.
-
-**Première utilisation :**
 ```bash
 cp .env.example .env.production
-# Édite .env.production : renseigne ENV_FILE, DATABASE_URL (pooler Supabase)
+# Éditer DATABASE_URL avec le pooler Supabase
+
+docker compose --env-file .env.production up --build
 ```
 
-**Lancement :**
+**Ajouter le hot reload**
+
+Ajouter `-f docker-compose.dev.yml` à n'importe laquelle des commandes ci-dessus pour activer le rechargement automatique à chaque modification de fichier source, sans rebuild.
+
 ```bash
-docker compose --env-file .env.production up
+docker compose -f docker-compose.yml -f docker-compose.local.yml -f docker-compose.dev.yml up --build
 ```
 
-| | Local | Production (Supabase) |
+| | Sans `dev.yml` | Avec `dev.yml` |
 |---|---|---|
-| Containers | db + backend + frontend | backend + frontend |
-| Données | Volume Docker `pg_data` | Supabase cloud |
-| Connexion | `@db:5432` (réseau Docker) | pooler `aws-0-eu-west-3.pooler.supabase.com` |
-| SSL | Non | Oui (automatique via `database.py`) |
+| Frontend | Build de production compilé | `next dev` — hot reload |
+| Backend | Uvicorn statique | Uvicorn `--reload` |
+| Modifier un `.js` / `.py` | Rebuild image requis | Instantané / ~1 s |
+| Modifier `package.json` | Rebuild image | Rebuild image (`--build`) |
 
-> **Railway :** les variables `DATABASE_URL`, `NEXT_PUBLIC_API_URL` et `NEXT_PUBLIC_WS_URL`
-> sont injectées directement depuis le dashboard Railway — pas de fichier `.env` nécessaire.
+> Premier démarrage avec `dev.yml` : le `--build` est obligatoire pour créer le volume `node_modules`.
 
-## Quick Start
+### 3. Développement natif (sans Docker)
+
+Utile pour déboguer ou itérer rapidement. Nécessite Python 3.12+, Node.js 20+ et une base PostgreSQL accessible (l'instance Docker locale convient).
+
+**Backend**
 
 ```bash
-# Local (PostgreSQL Docker)
-docker compose -f docker-compose.yml -f docker-compose.local.yml up
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+export DATABASE_URL=postgresql+asyncpg://marketplace:marketplace@localhost:5432/marketplace
+uvicorn main:app --reload --port 8000
+```
 
-# Production (Supabase)
-docker compose --env-file .env.production up
+**Frontend**
+
+```bash
+cd frontend
+npm install
+# Créer frontend/.env.local
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+echo "NEXT_PUBLIC_WS_URL=ws://localhost:8000" >> .env.local
+npm run dev
 ```
 
 - Frontend : http://localhost:3000
-- API docs : http://localhost:8000/docs
+- API + Swagger : http://localhost:8000/docs
+
+> La base de données peut être l'instance lancée par `docker-compose.local.yml`, exposée sur `localhost:5432`.
 
 ## API Examples
 
