@@ -2,7 +2,7 @@
 
 A full-stack actuarial model marketplace built with Next.js, FastAPI, PostgreSQL, and Python functions that simulate Databricks workflows.
 
-## La révolution de l'IA et la nécessité de devnir un actuaire Full-Stack
+## La révolution de l'IA et la nécessité de devenir un actuaire Full-Stack
 
 `Vers l’autonomie technologique et la fin des intermédiaires`
 
