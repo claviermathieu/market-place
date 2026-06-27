@@ -43,6 +43,15 @@ const SECTIONS = [
     readTime: '12 min read',
     icon: '⟳',
   },
+  {
+    href: '/docs/claude-workflow',
+    title: 'Claude Workflow',
+    description:
+      'Prompt templates, architecture decisions, and domain glossary — how this project was built with AI, documented as a live system.',
+    readTime: '15 min read',
+    icon: '⬡',
+    accent: true,
+  },
 ]
 
 const QUICK_REF = [

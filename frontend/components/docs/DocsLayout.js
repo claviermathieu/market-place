@@ -31,6 +31,15 @@ const NAV_SECTIONS = [
       { href: '/docs/roadmap', label: 'App Roadmap' },
     ],
   },
+  {
+    heading: 'Claude Workflow',
+    items: [
+      { href: '/docs/claude-workflow', label: 'How We Work with Claude' },
+      { href: '/docs/claude-workflow/prompt-library', label: 'Prompt Library', indent: true },
+      { href: '/docs/claude-workflow/decisions', label: 'Architecture Decisions', indent: true },
+      { href: '/docs/claude-workflow/domain-glossary', label: 'Domain Glossary', indent: true },
+    ],
+  },
 ]
 
 const ALL_ITEMS = NAV_SECTIONS.flatMap((s) => s.items)

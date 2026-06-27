@@ -104,3 +104,10 @@ docker compose logs -f frontend
 - `.claude/context/domain.md` — actuarial domain glossary
 - `.claude/decisions/` — Architecture Decision Records for every major choice
 - `.claude/prompts/` — reusable prompt templates for common tasks
+
+## Documentation
+
+All features are documented at `/docs`. When adding a new feature:
+1. Update the relevant MDX page in `frontend/pages/docs/`
+2. If it's a significant architectural decision, add an ADR in `.claude/decisions/`
+3. If you used a new prompt pattern, document it in `.claude/prompts/`
