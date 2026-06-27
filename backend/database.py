@@ -1,22 +1,14 @@
+import os
 import ssl
 from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from pydantic_settings import BaseSettings
 
-
-class Settings(BaseSettings):
-    database_url: str = "postgresql+asyncpg://marketplace:marketplace@db:5432/marketplace"
-
-    class Config:
-        env_file = ".env"
-
-
-settings = Settings()
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://marketplace:marketplace@db:5432/marketplace")
 
 _LOCAL_HOSTS = {"localhost", "db", "127.0.0.1"}
-_parsed = urlparse(settings.database_url.replace("+asyncpg", ""))
+_parsed = urlparse(DATABASE_URL.replace("+asyncpg", ""))
 _is_remote = _parsed.hostname not in _LOCAL_HOSTS
 
 if _is_remote:
@@ -30,7 +22,7 @@ else:
     _connect_args = {}
 
 engine = create_async_engine(
-    settings.database_url,
+    DATABASE_URL,
     echo=False,
     connect_args=_connect_args,
 )
